@@ -2,6 +2,9 @@
   const state = { filename: '', pieces: [], contours: [], paths: [], config: null };
   const fieldIds = ['ledOffset', 'ledChannelWidth', 'ledRebate'];
   const round = value => Number(value.toFixed(3));
+  // Original piece in red, LED channel in green (pure RGB, easy to map in CAM).
+  const SOURCE_COLOR = '#FF0000', CHANNEL_COLOR = '#00FF00';
+  const sourceMarkup = markup => markup.replace(/\sstroke="[^"]*"/g, ` stroke="${SOURCE_COLOR}"`);
 
   function switchTab(name) {
     const led = name === 'led';
@@ -93,7 +96,7 @@
 
   function pathD(points, closed = true) { return `M ${points.map(point => `${round(point.x)} ${round(point.y)}`).join(' L ')}${closed ? ' Z' : ''}`; }
   function pathMarkup(path, transform = '') {
-    return LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"${transform} fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
+    return LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"${transform} fill="none" stroke="${CHANNEL_COLOR}" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
   }
 
   function renderPreview() {
@@ -108,7 +111,7 @@
       rows.push({ piece, x, y }); x += piece.width + 45; rowHeight = Math.max(rowHeight, piece.height);
     }
     const height = y + rowHeight + 55;
-    const source = rows.map(row => `<g transform="translate(${round(row.x)} ${round(row.y)}) scale(${round(row.piece.sx)} ${round(row.piece.sy)}) translate(${-round(row.piece.bbox.x)} ${-round(row.piece.bbox.y)})" fill="none" stroke="#EC268F" stroke-width="${round(1.4 / Math.min(row.piece.sx, row.piece.sy))}">${row.piece.cutMarkup}</g>`).join('');
+    const source = rows.map(row => `<g transform="translate(${round(row.x)} ${round(row.y)}) scale(${round(row.piece.sx)} ${round(row.piece.sy)}) translate(${-round(row.piece.bbox.x)} ${-round(row.piece.bbox.y)})" fill="none" stroke="${SOURCE_COLOR}" stroke-width="${round(1.4 / Math.min(row.piece.sx, row.piece.sy))}">${sourceMarkup(row.piece.cutMarkup)}</g>`).join('');
     const channels = state.paths.map(path => {
       const row = rows.find(item => item.piece === path.piece);
       return pathMarkup(path, ` transform="translate(${round(row.x - path.piece.bbox.x * path.piece.sx)} ${round(row.y - path.piece.bbox.y * path.piece.sy)})"`);
@@ -160,9 +163,9 @@
       if (!paths) return '';
       pieceCount++;
       const id = escapeXml(piece.name.replace(/\s+/g, '_'));
-      const channel = `<g id="LED_${id}" data-peca="${escapeXml(piece.name)}" data-modo="${mode}" data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g>`;
+      const channel = `<g id="LED_${id}" data-peca="${escapeXml(piece.name)}" data-modo="${mode}" data-operation="USINAGEM_LED" fill="none" stroke="${CHANNEL_COLOR}" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g>`;
       if (!includeSource) return channel;
-      const source = `<g id="Original_${id}" data-operation="PECA_ORIGINAL" transform="scale(${piece.sx} ${piece.sy})" fill="none" stroke="#EC268F" stroke-width="${round(0.2 / Math.min(piece.sx, piece.sy))}">${piece.markup}</g>`;
+      const source = `<g id="Original_${id}" data-operation="PECA_ORIGINAL" transform="scale(${piece.sx} ${piece.sy})" fill="none" stroke="${SOURCE_COLOR}" stroke-width="${round(0.2 / Math.min(piece.sx, piece.sy))}">${sourceMarkup(piece.markup)}</g>`;
       return `<g id="${id}" data-peca="${escapeXml(piece.name)}">${source}${channel}</g>`;
     }).join('');
     const pad = state.config.channelWidth;
