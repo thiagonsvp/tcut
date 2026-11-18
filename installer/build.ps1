@@ -1,6 +1,8 @@
 param(
   [string]$NodePath,
-  [string]$InnoCompiler
+  [string]$InnoCompiler,
+  [ValidateSet('2020', '2024', '2025')]
+  [string[]]$CorelYear = @('2020', '2024', '2025')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,6 +47,9 @@ if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notl
   throw 'O instalador do WebView2 não tem assinatura válida da Microsoft.'
 }
 
+# Compila uma vez contra o CorelDRAW 2025 instalado para detectar erros no painel.
+# Em cada computador de destino, o instalador compila novamente contra a API da
+# versão escolhida, antes de registrar o painel.
 & (Join-Path $project 'corel\webview2\build.ps1')
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { throw 'Falha ao compilar o painel.' }
 
@@ -53,19 +58,21 @@ foreach ($test in @('test-nesting.js', 'test-irregular.js', 'test-export.js', 't
   if ($LASTEXITCODE -ne 0) { throw "Teste falhou: $test" }
 }
 
+$targets = @{ '2020' = '22'; '2024' = '25'; '2025' = '26' }
 $script = Join-Path $PSScriptRoot 'TCut.iss'
-& $InnoCompiler ("--define=NodeBinary=$NodePath") ("--define=AppVersion=$version") $script
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao criar o instalador.' }
+foreach ($year in $CorelYear) {
+  $internalVersion = $targets[$year]
+  & $InnoCompiler ("--define=NodeBinary=$NodePath") ("--define=AppVersion=$version") ("--define=CorelYear=$year") ("--define=CorelInternalVersion=$internalVersion") $script
+  if ($LASTEXITCODE -ne 0) { throw "Falha ao criar o instalador para CorelDRAW $year." }
 
-$output = Join-Path $PSScriptRoot ("output\T-Cut-Setup-$version.exe")
-if (-not (Test-Path -LiteralPath $output)) { throw "Instalador não encontrado: $output" }
-$file = Get-Item -LiteralPath $output
-$hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash
-$distribution = Join-Path $PSScriptRoot ("T-Cut-Setup-$version.exe")
-Copy-Item -LiteralPath $output -Destination $distribution -Force
-if ((Get-FileHash -LiteralPath $distribution -Algorithm SHA256).Hash -ne $hash) {
-  throw 'A cópia do instalador para distribuição não confere com o build.'
+  $name = "T-Cut-CorelDRAW-$year-Setup-$version.exe"
+  $output = Join-Path $PSScriptRoot ("output\$name")
+  if (-not (Test-Path -LiteralPath $output)) { throw "Instalador não encontrado: $output" }
+  $distribution = Join-Path $PSScriptRoot $name
+  Copy-Item -LiteralPath $output -Destination $distribution -Force
+  $hash = (Get-FileHash -LiteralPath $distribution -Algorithm SHA256).Hash
+  $file = Get-Item -LiteralPath $distribution
+  Write-Host "Instalador CorelDRAW ${year}: $distribution"
+  Write-Host "Tamanho: $([Math]::Round($file.Length / 1MB, 1)) MB"
+  Write-Host "SHA256: $hash"
 }
-Write-Host "Instalador pronto: $distribution"
-Write-Host "Tamanho: $([Math]::Round($file.Length / 1MB, 1)) MB"
-Write-Host "SHA256: $hash"

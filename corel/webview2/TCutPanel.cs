@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -10,6 +9,7 @@ using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
+using Cdr = Corel.Interop.VGCore;
 
 namespace TCutDocker
 {
@@ -22,18 +22,16 @@ namespace TCutDocker
         private readonly TextBlock status;
         private readonly WebView2 web;
         private readonly DispatcherTimer readyTimer;
-        private readonly dynamic corelApplication;
-        private dynamic sourceDocument;
-        private dynamic sourceShapes;
-        private dynamic svgFilter;
-        private dynamic selectionExportRange;
+        private readonly Cdr.Application corelApplication;
+        private Cdr.Document sourceDocument;
+        private Cdr.ShapeRange sourceShapes;
         private bool messageHookInstalled;
         private int readyAttempts;
 
         // CorelDRAW's wpfhost passes its in-process Application to the control.
         public TCutPanel(object application)
         {
-            corelApplication = application;
+            corelApplication = application as Cdr.Application;
             var root = new Grid { Background = new SolidColorBrush(Color.FromRgb(244, 247, 243)) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -151,7 +149,8 @@ namespace TCutDocker
                 var pathFile = Path.Combine(addonDir, "project-path.txt");
                 var projectRoot = File.Exists(pathFile) ? File.ReadAllText(pathFile).Trim() : null;
                 if (String.IsNullOrWhiteSpace(projectRoot)) {
-                    using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\T-Cut"))
+                    var hostVersion = FileVersionInfo.GetVersionInfo(Process.GetCurrentProcess().MainModule.FileName).FileMajorPart;
+                    using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\T-Cut\" + hostVersion))
                         projectRoot = key == null ? null : key.GetValue("InstallPath") as string;
                 }
                 if (String.IsNullOrWhiteSpace(projectRoot))
@@ -181,22 +180,11 @@ namespace TCutDocker
             catch { }
         }
 
-        private dynamic CorelApp()
+        private Cdr.Application CorelApp()
         {
             if (corelApplication == null)
                 throw new InvalidOperationException("O CorelDRAW não forneceu a aplicação ao painel.");
             return corelApplication;
-        }
-
-        private void EnsureCorelEnums()
-        {
-            if (svgFilter != null) return;
-            var programs = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
-            var interop = Path.Combine(programs, "Assemblies", "Corel.Interop.VGCore.dll");
-            if (!File.Exists(interop)) throw new FileNotFoundException("API do CorelDRAW não encontrada", interop);
-            var assembly = Assembly.LoadFrom(interop);
-            svgFilter = Enum.Parse(assembly.GetType("Corel.Interop.VGCore.cdrFilter", true), "cdrSVG");
-            selectionExportRange = Enum.Parse(assembly.GetType("Corel.Interop.VGCore.cdrExportRange", true), "cdrSelection");
         }
 
         private void SendSelection()
@@ -206,18 +194,17 @@ namespace TCutDocker
                 return;
             }
             try {
-                EnsureCorelEnums();
-                dynamic doc = CorelApp().ActiveDocument;
+                Cdr.Document doc = CorelApp().ActiveDocument;
                 if (doc == null || doc.SelectionRange.Count < 1) {
                     SetStatus("Selecione as letras ou peças no CorelDRAW.");
                     return;
                 }
-                dynamic selected = doc.SelectionRange;
-                dynamic captured = CorelApp().CreateShapeRange();
+                Cdr.ShapeRange selected = doc.SelectionRange;
+                Cdr.ShapeRange captured = CorelApp().CreateShapeRange();
                 for (int i = 1; i <= selected.Count; i++) captured.Add(selected[i]);
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-input.svg");
                 if (File.Exists(file)) File.Delete(file);
-                doc.Export(file, svgFilter, selectionExportRange);
+                doc.Export(file, Cdr.cdrFilter.cdrSVG, Cdr.cdrExportRange.cdrSelection);
                 sourceDocument = doc;
                 sourceShapes = captured;
                 SetStatus("Seleção enviada. Preparando o plano no T-Cut...");
@@ -265,22 +252,21 @@ namespace TCutDocker
             bool replaceSource = message == "TCUT_APPLY_NESTING";
             if (!replaceSource && message != "TCUT_IMPORT_LETTERBOX") return;
             try {
-                EnsureCorelEnums();
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-output.svg");
                 if (!File.Exists(file)) throw new FileNotFoundException("SVG não encontrado");
                 if (replaceSource && (sourceDocument == null || sourceShapes == null || sourceShapes.Count == 0))
                     throw new InvalidOperationException("Envie novamente a seleção do Corel antes de aplicar o plano.");
                 if (replaceSource && !sourceDocument.Active)
                     throw new InvalidOperationException("Ative o documento original antes de aplicar o plano.");
-                dynamic doc = replaceSource ? sourceDocument : CorelApp().ActiveDocument;
+                Cdr.Document doc = replaceSource ? sourceDocument : CorelApp().ActiveDocument;
                 if (doc == null) throw new InvalidOperationException("Abra um documento no CorelDRAW");
                 bool imported = false;
                 bool completed = false;
                 doc.BeginCommandGroup(replaceSource ? "T-Cut - reorganizar peças" : "T-Cut - tiras de letra caixa");
                 try {
-                    dynamic layer = doc.ActiveLayer;
+                    Cdr.Layer layer = doc.ActiveLayer;
                     int beforeCount = layer.Shapes.Count;
-                    layer.Import(file, svgFilter);
+                    layer.Import(file, Cdr.cdrFilter.cdrSVG);
                     imported = true;
                     if (layer.Shapes.Count <= beforeCount)
                         throw new InvalidOperationException("O SVG não criou objetos no CorelDRAW.");

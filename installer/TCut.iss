@@ -4,10 +4,16 @@
 #ifndef NodeBinary
   #error NodeBinary must point to node.exe
 #endif
+#ifndef CorelYear
+  #error CorelYear must identify the target CorelDRAW release
+#endif
+#ifndef CorelInternalVersion
+  #error CorelInternalVersion must identify the target CorelDRAW API
+#endif
 
 [Setup]
-AppId={{D49D9185-5A2F-4EC0-9469-AE683E6D9D35}
-AppName=T-Cut
+AppId={{D49D9185-5A2F-4EC0-9469-AE683E6D9D35}-{#CorelInternalVersion}
+AppName=T-Cut para CorelDRAW {#CorelYear}
 AppVersion={#AppVersion}
 AppPublisher=T-Cut
 DefaultDirName={autopf}\T-Cut
@@ -17,12 +23,12 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=output
-OutputBaseFilename=T-Cut-Setup-{#AppVersion}
+OutputBaseFilename=T-Cut-CorelDRAW-{#CorelYear}-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
-UninstallDisplayName=T-Cut - painel para CorelDRAW
+UninstallDisplayName=T-Cut para CorelDRAW {#CorelYear}
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -43,22 +49,31 @@ Source: "third-party\Node-LICENSE.txt"; DestDir: "{app}\runtime"; Flags: ignorev
 Source: "..\corel\docker\AppUI.xslt"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\docker\UserUI.xslt"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\docker\Coreldrw.addon"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
-Source: "..\corel\webview2\TCutPanel.dll"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\webview2\Microsoft.Web.WebView2.Core.dll"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\webview2\Microsoft.Web.WebView2.Wpf.dll"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\webview2\WebView2Loader.dll"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
 Source: "..\corel\webview2\WEBVIEW2-LICENSE.txt"; DestDir: "{code:GetAddonDir}\TCutDocker"; Flags: ignoreversion
+Source: "..\corel\webview2\TCutPanel.cs"; DestDir: "{app}\panel-build"; Flags: ignoreversion
+Source: "..\corel\webview2\build.ps1"; DestDir: "{app}\panel-build"; Flags: ignoreversion
+Source: "..\corel\webview2\compile-installed-panel.ps1"; DestDir: "{app}\panel-build"; Flags: ignoreversion
+Source: "..\corel\webview2\Microsoft.Web.WebView2.Core.dll"; DestDir: "{app}\panel-build"; Flags: ignoreversion
+Source: "..\corel\webview2\Microsoft.Web.WebView2.Wpf.dll"; DestDir: "{app}\panel-build"; Flags: ignoreversion
 Source: "third-party\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [InstallDelete]
 Type: files; Name: "{code:GetAddonDir}\TCutDocker\project-path.txt"
 
+[UninstallDelete]
+Type: files; Name: "{code:GetPanelDllPath}"
+Type: dirifempty; Name: "{code:GetAddonDir}\TCutDocker"
+
 [Registry]
-Root: HKLM; Subkey: "SOFTWARE\T-Cut"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletevalue uninsdeletekeyifempty
-Root: HKLM; Subkey: "SOFTWARE\T-Cut"; ValueType: string; ValueName: "CorelAddonsPath"; ValueData: "{code:GetAddonDir}"; Flags: uninsdeletevalue uninsdeletekeyifempty
+Root: HKLM; Subkey: "SOFTWARE\T-Cut\{#CorelInternalVersion}"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletevalue uninsdeletekeyifempty
+Root: HKLM; Subkey: "SOFTWARE\T-Cut\{#CorelInternalVersion}"; ValueType: string; ValueName: "CorelAddonsPath"; ValueData: "{code:GetAddonDir}"; Flags: uninsdeletevalue uninsdeletekeyifempty
 
 [Run]
 Filename: "{tmp}\MicrosoftEdgeWebview2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "Instalando Microsoft WebView2..."; Check: not WebView2Installed
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\panel-build\compile-installed-panel.ps1"" -CorelInteropPath ""{code:GetCorelInteropPath}"" -OutputPath ""{code:GetPanelDllPath}"""; StatusMsg: "Preparando o painel para CorelDRAW {#CorelYear}..."; Flags: runhidden waituntilterminated
 
 [Code]
 var
@@ -66,24 +81,26 @@ var
 
 function FindCorelAddons: String;
 var
-  Version: Integer;
   Candidate: String;
 begin
   Result := '';
-  for Version := 27 downto 25 do
-  begin
-    Candidate := ExpandConstant('{autopf}\Corel\CorelDRAW Graphics Suite\' + IntToStr(Version) + '\Programs64\Addons');
-    if DirExists(Candidate) then
-    begin
-      Result := Candidate;
-      Exit;
-    end;
-  end;
+  Candidate := ExpandConstant('{autopf}\Corel\CorelDRAW Graphics Suite\{#CorelInternalVersion}\Programs64\Addons');
+  if DirExists(Candidate) then Result := Candidate;
 end;
 
 function GetAddonDir(Param: String): String;
 begin
   Result := RemoveBackslashUnlessRoot(CorelPage.Values[0]);
+end;
+
+function GetCorelInteropPath(Param: String): String;
+begin
+  Result := AddBackslash(ExtractFileDir(GetAddonDir(''))) + 'Assemblies\Corel.Interop.VGCore.dll';
+end;
+
+function GetPanelDllPath(Param: String): String;
+begin
+  Result := AddBackslash(GetAddonDir('')) + 'TCutDocker\TCutPanel.dll';
 end;
 
 function ValidCorelAddons(const Addons: String; var ErrorText: String): Boolean;
@@ -112,10 +129,9 @@ begin
     Exit;
   end;
   if not GetVersionNumbersString(ExePath, FileVersion) or
-     ((Pos('25.', FileVersion) <> 1) and (Pos('26.', FileVersion) <> 1) and
-      (Pos('27.', FileVersion) <> 1)) then
+     (Pos('{#CorelInternalVersion}.', FileVersion) <> 1) then
   begin
-    ErrorText := 'Esta versão do instalador aceita CorelDRAW 2024, 2025 ou 2026 (64 bits).';
+    ErrorText := 'Este instalador exige o CorelDRAW {#CorelYear} de 64 bits.';
     Exit;
   end;
   Result := True;
@@ -157,34 +173,27 @@ var
   Suggested: String;
 begin
   CorelPage := CreateInputDirPage(wpSelectDir, 'CorelDRAW',
-    'Selecione a instalação do CorelDRAW que receberá o painel T-Cut.',
-    'Escolha a pasta Programs64\Addons. São aceitas as versões 2024, 2025 e 2026 de 64 bits.',
+    'Selecione a instalação do CorelDRAW {#CorelYear} que receberá o painel T-Cut.',
+    'Escolha a pasta Programs64\Addons do CorelDRAW {#CorelYear}, versão de 64 bits.',
     False, '');
   CorelPage.Add('Pasta Addons do CorelDRAW:');
-  if not RegQueryStringValue(HKLM, 'SOFTWARE\T-Cut', 'CorelAddonsPath', Suggested) or
+  if not RegQueryStringValue(HKLM, 'SOFTWARE\T-Cut\{#CorelInternalVersion}', 'CorelAddonsPath', Suggested) or
      not DirExists(Suggested) then
     Suggested := FindCorelAddons;
   if Suggested = '' then
-    Suggested := ExpandConstant('{autopf}\Corel\CorelDRAW Graphics Suite\26\Programs64\Addons');
+    Suggested := ExpandConstant('{autopf}\Corel\CorelDRAW Graphics Suite\{#CorelInternalVersion}\Programs64\Addons');
   CorelPage.Values[0] := Suggested;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ErrorText: String;
-  Previous: String;
 begin
   Result := True;
   if CurPageID = CorelPage.ID then
   begin
     Result := ValidCorelAddons(GetAddonDir(''), ErrorText);
     if not Result then MsgBox(ErrorText, mbError, MB_OK);
-    if Result and RegQueryStringValue(HKLM, 'SOFTWARE\T-Cut', 'CorelAddonsPath', Previous) and
-       (LowerCase(RemoveBackslashUnlessRoot(Previous)) <> LowerCase(GetAddonDir(''))) then
-    begin
-      Result := False;
-      MsgBox('O T-Cut já está instalado em outra versão do CorelDRAW. Desinstale-o antes de escolher uma instalação diferente.', mbError, MB_OK);
-    end;
   end;
 end;
 

@@ -14,11 +14,11 @@ Abra **http://localhost:4173** no navegador. Não há instalação de pacotes ne
 
 ## Instalador para outros computadores
 
-O arquivo [T-Cut-Setup-1.0.0.exe](installer/T-Cut-Setup-1.0.0.exe) instala o aplicativo e o painel diretamente no CorelDRAW. Ele inclui o Node.js necessário para o servidor local; o usuário não precisa instalar Node nem copiar a pasta do projeto. O assistente localiza as instalações de **CorelDRAW 2024, 2025 ou 2026 (64 bits)** e permite escolher a pasta `Programs64\Addons` quando houver mais de uma ou quando o Corel estiver em outro disco. A instalação pede permissão de administrador e exige que o CorelDRAW esteja fechado.
+Use o instalador correspondente ao CorelDRAW instalado: [2020](installer/T-Cut-CorelDRAW-2020-Setup-1.0.1.exe), [2024](installer/T-Cut-CorelDRAW-2024-Setup-1.0.1.exe) ou [2025](installer/T-Cut-CorelDRAW-2025-Setup-1.0.1.exe). Cada pacote instala o aplicativo e gera o painel com a API exata daquela versão. Ele inclui o Node.js necessário para o servidor local; o usuário não precisa instalar Node nem copiar a pasta do projeto. A instalação pede permissão de administrador e exige que o CorelDRAW esteja fechado.
 
-Se o Microsoft WebView2 Runtime não estiver presente, o instalador executa o bootstrapper oficial da Microsoft; nesse caso é necessária uma conexão com a internet. Depois da instalação, reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. A remoção fica disponível em **Aplicativos instalados** do Windows. A integração foi testada no CorelDRAW 2025; a instalação nas versões 2024 e 2026 está preparada, mas precisa ser conferida nessas versões antes de uso em produção.
+Se o Microsoft WebView2 Runtime não estiver presente, o instalador executa o bootstrapper oficial da Microsoft; nesse caso é necessária uma conexão com a internet. Depois da instalação, reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. A remoção fica disponível em **Aplicativos instalados** do Windows. A integração foi testada no CorelDRAW 2025; os pacotes de 2020 e 2024 precisam ser conferidos nessas versões antes de uso em produção.
 
-Para gerar novamente o instalador nesta máquina, execute `& '.\installer\build.ps1'`. A compilação usa Inno Setup 7, Node.js v24.18.0 x64, recompila o painel e executa os testes. O executável para distribuição fica em `installer`, e os arquivos temporários de compilação ficam em `installer\output`.
+Para gerar novamente os instaladores nesta máquina, execute `& '.\installer\build.ps1'`. Para gerar somente uma versão, use por exemplo `& '.\installer\build.ps1' -CorelYear 2025`. A compilação usa Inno Setup 7, Node.js v24.18.0 x64, recompila o painel e executa os testes. Os executáveis para distribuição ficam em `installer`, e os arquivos temporários de compilação ficam em `installer\output`.
 
 ## Fluxo
 

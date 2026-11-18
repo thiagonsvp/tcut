@@ -1,6 +1,6 @@
 {
   "name": "t-cut-nesting",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Planejador de nesting para corte CNC",
   "scripts": {
