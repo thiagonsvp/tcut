@@ -1,6 +1,8 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const $ = (id) => document.getElementById(id);
 const state = { pieces: [], sheets: [], unplaced: [], fileName: '', settings: null, currentSheet: 0, zoom: 1, busy: false };
+const SHEET_PRESETS_KEY = 'tcut.sheetPresets.v1';
+let savedSheets = [];
 const allowedShapes = new Set(['path', 'polygon', 'polyline', 'rect', 'circle', 'ellipse', 'line']);
 const shapeAttributes = {
   path: ['d'], polygon: ['points'], polyline: ['points'], rect: ['x', 'y', 'width', 'height', 'rx', 'ry'],
@@ -184,6 +186,65 @@ function readSettings() {
   return { width, height, gap, margin, grain: $('grain').checked, rotationStep };
 }
 
+function restoreSheetPresets() {
+  try {
+    const entries = JSON.parse(localStorage.getItem(SHEET_PRESETS_KEY) || '[]');
+    savedSheets = Array.isArray(entries) ? entries.filter(item => item && typeof item.name === 'string' && item.name.trim() && Number.isFinite(item.width) && item.width > 0 && Number.isFinite(item.height) && item.height > 0).map(item => ({ name: item.name.trim().slice(0, 60), width: item.width, height: item.height })) : [];
+  } catch { savedSheets = []; }
+  renderSheetPresets();
+}
+
+function renderSheetPresets(selected = '') {
+  const select = $('sheetPreset');
+  select.replaceChildren(new Option('Selecione uma chapa', ''));
+  for (const sheet of savedSheets) select.add(new Option(`${sheet.name} · ${format(sheet.width)} × ${format(sheet.height)} mm`, sheet.name));
+  select.value = selected;
+}
+
+function saveSheetPreset() {
+  const name = $('sheetName').value.trim();
+  const width = Number($('sheetWidth').value), height = Number($('sheetHeight').value);
+  if (!name) { notify('Informe um nome para salvar a chapa.', true); $('sheetName').focus(); return; }
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) { notify('Informe largura e altura positivas antes de salvar.', true); return; }
+  const existing = savedSheets.findIndex(sheet => sheet.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'));
+  const entry = { name: existing >= 0 ? savedSheets[existing].name : name, width, height };
+  const next = [...savedSheets];
+  if (existing >= 0) next[existing] = entry;
+  else next.push(entry);
+  try { localStorage.setItem(SHEET_PRESETS_KEY, JSON.stringify(next)); }
+  catch { notify('Não foi possível salvar a chapa neste navegador.', true); return; }
+  savedSheets = next;
+  $('sheetName').value = entry.name;
+  renderSheetPresets(entry.name);
+  renderMetrics();
+  notify(`Dimensões de “${entry.name}” salvas.`);
+}
+
+function resetPlan() {
+  if (state.busy) return;
+  state.pieces = [];
+  state.sheets = [];
+  state.unplaced = [];
+  state.fileName = '';
+  state.settings = null;
+  state.currentSheet = 0;
+  state.zoom = 1;
+  $('fileInput').value = '';
+  $('sheetWidth').value = '2750';
+  $('sheetHeight').value = '1850';
+  $('gap').value = '6';
+  $('margin').value = '12';
+  $('grain').checked = false;
+  $('rotationStep').value = '5';
+  $('sheetPreset').value = '';
+  $('sheetName').value = '';
+  $('exportMenu').classList.add('hidden');
+  $('canvasViewport').scrollTo(0, 0);
+  $('settingsMessage').textContent = 'Importe um SVG para começar um novo plano.';
+  render();
+  notify('Plano resetado. As chapas salvas continuam disponíveis.');
+}
+
 function intersects(a, b) { return a.x < b.x + b.w - 1e-7 && a.x + a.w > b.x + 1e-7 && a.y < b.y + b.h - 1e-7 && a.y + a.h > b.y + 1e-7; }
 function contained(a, b) { return a.x >= b.x - 1e-7 && a.y >= b.y - 1e-7 && a.x + a.w <= b.x + b.w + 1e-7 && a.y + a.h <= b.y + b.h + 1e-7; }
 
@@ -245,7 +306,7 @@ async function optimize() {
   render();
   let refinementError = null;
   state.busy = true;
-  for (const id of ['optimizeButton', 'importButton', 'exportButton', 'sheetWidth', 'sheetHeight', 'gap', 'margin', 'grain', 'rotationStep']) $(id).disabled = true;
+  for (const id of ['optimizeButton', 'importButton', 'exportButton', 'resetButton', 'saveSheetButton', 'sheetPreset', 'sheetWidth', 'sheetHeight', 'gap', 'margin', 'grain', 'rotationStep']) $(id).disabled = true;
   $('settingsMessage').textContent = 'Compactando os contornos da esquerda para a direita…';
   await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   try {
@@ -264,7 +325,7 @@ async function optimize() {
     notify(`Refino por contorno indisponível: ${error.message}`, true);
   } finally {
     state.busy = false;
-    for (const id of ['optimizeButton', 'importButton', 'exportButton', 'sheetWidth', 'sheetHeight', 'gap', 'margin', 'grain']) $(id).disabled = false;
+    for (const id of ['optimizeButton', 'importButton', 'exportButton', 'resetButton', 'saveSheetButton', 'sheetPreset', 'sheetWidth', 'sheetHeight', 'gap', 'margin', 'grain']) $(id).disabled = false;
     $('rotationStep').disabled = config.grain;
   }
   $('settingsMessage').textContent = refinementError ? 'O refino falhou; o encaixe inicial permanece disponível.' : state.unplaced.length ? `${state.unplaced.length} peça(s) não cabem nas dimensões informadas.` : `Encaixe recalculado com folga de ${format(config.gap, 1)} mm.`;
@@ -473,7 +534,8 @@ function renderPreview() {
   $('emptyState').classList.toggle('hidden', !!sheet);
   $('sheetSvg').classList.toggle('hidden', !sheet);
   $('sheetLabel').textContent = `CHAPA ${String(sheet ? state.currentSheet + 1 : 0).padStart(2, '0')} / ${String(state.sheets.length).padStart(2, '0')}`;
-  if (!sheet) return;
+  $('zoomLabel').textContent = `${Math.round(state.zoom * 100)}%`;
+  if (!sheet) { $('sheetSvg').replaceChildren(); return; }
   const svg = $('sheetSvg');
   svg.setAttribute('viewBox', `0 0 ${config.width} ${config.height}`);
   svg.setAttribute('width', `${config.width}mm`);
@@ -481,7 +543,6 @@ function renderPreview() {
   svg.innerHTML = sheetContent(sheet, config);
   svg.style.aspectRatio = `${config.width} / ${config.height}`;
   svg.style.transform = `scale(${state.zoom})`;
-  $('zoomLabel').textContent = `${Math.round(state.zoom * 100)}%`;
 }
 
 function renderPieces() {
@@ -500,6 +561,7 @@ function renderPieces() {
 
 function renderMetrics() {
   const config = state.settings || readSettings();
+  const selectedSheet = savedSheets.find(sheet => sheet.name === $('sheetPreset').value && sheet.width === config.width && sheet.height === config.height);
   const placedPieces = state.sheets.flatMap(s => s.placements.map(p => p.piece));
   const occupiedArea = placedPieces.reduce((sum, p) => sum + p.area, 0);
   const percent = state.sheets.length ? occupiedArea / (config.width * config.height * state.sheets.length) * 100 : 0;
@@ -509,7 +571,7 @@ function renderMetrics() {
   $('placedTotal').textContent = `/ ${state.pieces.length}`;
   $('placedDetail').textContent = state.pieces.length ? `${format(placedPieces.length / state.pieces.length * 100)}% do inventário` : 'Aguardando arquivo';
   $('sheetCount').textContent = state.sheets.length;
-  $('sheetDetail').textContent = state.sheets.length ? `${format(config.width)} × ${format(config.height)} mm cada` : 'Configure suas medidas';
+  $('sheetDetail').textContent = state.sheets.length ? `${selectedSheet ? `${selectedSheet.name} · ` : ''}${format(config.width)} × ${format(config.height)} mm cada` : 'Configure suas medidas';
   $('sheetArea').textContent = format(config.width * config.height / 1e6, 2);
   $('sheetDimension').textContent = `${format(config.width)} × ${format(config.height)} mm`;
 }
@@ -524,15 +586,6 @@ async function importText(text, filename) {
   state.zoom = 1;
   if (!result.hasScale) notify('O SVG não informa medidas físicas. Foi assumido 1 unidade = 1 mm. Confira a escala.', true);
   await optimize();
-}
-
-async function loadSample() {
-  if (state.busy) return;
-  try {
-    const response = await fetch('./pvc%2015mm%202.svg');
-    if (!response.ok) throw new Error('O SVG de exemplo não foi encontrado.');
-    await importText(await response.text(), 'pvc 15mm 2.svg');
-  } catch (error) { notify(error.message, true); }
 }
 
 function download(filename, content, mime) {
@@ -622,9 +675,6 @@ function exportPlan(type) {
     frame.src = url;
     document.body.appendChild(frame);
     notify('Na janela de impressão, escolha “Salvar como PDF”.');
-  } else if (type === 'cdr') {
-    $('helpDialog').showModal();
-    notify('Exporte o SVG e salve como CDR no CorelDRAW.');
   }
 }
 
@@ -638,9 +688,20 @@ function bindEvents() {
     if (/\.cdr$/i.test(file.name)) { notify('Exporte o CDR como SVG no CorelDRAW para importar as peças.', true); $('helpDialog').showModal(); return; }
     try { await importText(await file.text(), file.name); } catch (error) { notify(error.message, true); }
   });
-  $('sampleButton').addEventListener('click', loadSample);
+  $('resetButton').addEventListener('click', resetPlan);
+  $('saveSheetButton').addEventListener('click', saveSheetPreset);
+  $('sheetPreset').addEventListener('change', () => {
+    const sheet = savedSheets.find(item => item.name === $('sheetPreset').value);
+    if (!sheet) return;
+    $('sheetName').value = sheet.name;
+    $('sheetWidth').value = sheet.width;
+    $('sheetHeight').value = sheet.height;
+    renderMetrics();
+    renderPreview();
+    $('settingsMessage').textContent = state.pieces.length ? 'Chapa selecionada. Clique em otimizar para aplicar ao plano.' : 'Chapa selecionada. Importe um SVG para começar.';
+  });
   $('optimizeButton').addEventListener('click', optimize);
-  for (const id of ['sheetWidth', 'sheetHeight', 'gap', 'margin']) $(id).addEventListener('change', () => { try { renderMetrics(); $('settingsMessage').textContent = 'Parâmetros alterados. Clique em otimizar para aplicar ao plano.'; } catch {} });
+  for (const id of ['sheetWidth', 'sheetHeight', 'gap', 'margin']) $(id).addEventListener('change', () => { if (id === 'sheetWidth' || id === 'sheetHeight') $('sheetPreset').value = ''; try { renderMetrics(); renderPreview(); $('settingsMessage').textContent = state.pieces.length ? 'Parâmetros alterados. Clique em otimizar para aplicar ao plano.' : 'Dimensões atualizadas. Importe um SVG para começar.'; } catch {} });
   $('grain').addEventListener('change', () => { $('rotationText').textContent = $('grain').checked ? '0° · 180°' : 'Livre em 360°'; $('rotationStep').disabled = $('grain').checked; $('settingsMessage').textContent = 'Orientação alterada. Clique em otimizar para aplicar ao plano.'; });
   $('rotationStep').addEventListener('change', () => { $('settingsMessage').textContent = 'Precisão angular alterada. Clique em otimizar para aplicar ao plano.'; });
   $('exportButton').addEventListener('click', (event) => { event.stopPropagation(); $('exportMenu').classList.toggle('hidden'); });
@@ -654,5 +715,5 @@ function bindEvents() {
 }
 
 bindEvents();
+restoreSheetPresets();
 render();
-loadSample();

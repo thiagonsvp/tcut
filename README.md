@@ -14,12 +14,12 @@ Abra **http://localhost:4173** no navegador. Não há instalação de pacotes ne
 
 ## Fluxo
 
-1. No CorelDRAW, converta textos em curvas, agrupe os contornos de corte e de usinagem de cada letra e exporte o desenho em SVG com dimensões físicas em milímetros. Cada grupo vira uma peça única; objetos sem grupo entram separadamente.
-2. Importe o SVG, informe as medidas da chapa, a folga mínima e a margem. Ative o sentido do veio para permitir somente 0° e 180°. Sem veio, escolha a precisão da busca angular (15°, 5° ou 1°).
+1. A página abre vazia, inclusive após atualizar. No CorelDRAW, converta textos em curvas, agrupe os contornos de corte e de usinagem de cada letra e exporte o desenho em SVG com dimensões físicas em milímetros. Cada grupo vira uma peça única; objetos sem grupo entram separadamente.
+2. Importe o SVG, informe as medidas da chapa, a folga mínima e a margem. Você pode dar um nome à chapa, como **Chapa de ACM**, e salvar suas dimensões no navegador para selecionar novamente depois. Ative o sentido do veio para permitir somente 0° e 180°. Sem veio, escolha a precisão da busca angular (15°, 5° ou 1°).
 3. Clique em **Otimizar contornos**. O programa faz um encaixe inicial rápido e procura espaços livres usando a silhueta das peças, inclusive concavidades e vazados. Navegue entre as chapas com as setas ao lado do número da chapa.
 4. Exporte a chapa selecionada em SVG ou DXF para o CAM. O PDF é produzido pela opção **Salvar como PDF** na janela de impressão do navegador.
 
-O arquivo `pvc 15mm 2.svg`, com cinco letras agrupadas, é carregado automaticamente como exemplo.
+O botão **Resetar** limpa o arquivo importado, o mapa e os parâmetros atuais, preservando as chapas salvas. O arquivo `pvc 15mm 2.svg`, com cinco letras agrupadas, permanece na pasta como exemplo para importar manualmente.
 
 ## Limites importantes
 
@@ -27,7 +27,6 @@ O arquivo `pvc 15mm 2.svg`, com cinco letras agrupadas, é carregado automaticam
 - O aproveitamento é uma estimativa da área dos contornos em relação à área total das chapas utilizadas.
 - O DXF contém polilinhas amostradas a aproximadamente 0,25 mm e um contorno da chapa na camada `CHAPA`; os contornos rosa e verdes ficam, respectivamente, nas camadas `CORTE` e `USINAGEM`. Confira no CAM as curvas, a escala e quais camadas serão cortadas.
 - O SVG exportado contém apenas os contornos das peças, com unidades em milímetros. A folga e a margem são usadas no posicionamento e não viram trajetórias de ferramenta.
-- CDR é um formato proprietário. Para obter um CDR, abra o SVG exportado no CorelDRAW e use **Salvar como → CDR**.
 - O PDF é uma conferência visual. A geração das trajetórias, compensação da fresa e sequência de corte devem ser feitas no software CAM.
 
 ## Verificar o algoritmo
