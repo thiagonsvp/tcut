@@ -39,10 +39,19 @@
         const matrix = base.multiply(shape.getCTM());
         const scale = Math.max(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d));
         const samples = Math.min(100000, Math.max(24, Math.ceil(length * scale)));
-        const points = [];
-        for (let i = 0; i <= samples; i++) points.push(shape.getPointAtLength(length * i / samples).matrixTransform(matrix));
-        const contour = LedGeometry.contourFromPoints(points);
-        if (contour) contours.push(contour);
+        const maxJump = Math.max(3, length * scale / samples * 4);
+        let points = [], previous = null;
+        const flush = () => {
+          const contour = LedGeometry.contourFromPoints(points);
+          if (contour) contours.push(contour);
+          points = [];
+        };
+        for (let i = 0; i <= samples; i++) {
+          const point = shape.getPointAtLength(length * i / samples).matrixTransform(matrix);
+          if (previous && Math.hypot(point.x - previous.x, point.y - previous.y) > maxJump) flush();
+          points.push(point); previous = point;
+        }
+        flush();
       }
     } finally { measure.remove(); }
     return LedGeometry.classifyContours(contours);
@@ -61,17 +70,21 @@
     let config;
     try { config = readConfig(); } catch (error) { notify(error.message, true); return; }
     state.config = config;
-    state.paths = state.contours.map(contour => {
+    const paths = state.contours.map(contour => {
       const path = LedGeometry.ledContour(contour, config);
       if (!path) throw new Error(`Não foi possível deslocar o contorno ${contour.contourIndex}. Reduza a distância.`);
       return { ...path, piece: contour.piece, contourIndex: contour.contourIndex, kind: contour.kind };
     });
+    state.paths = LedGeometry.mergeClosePaths(paths, Math.max(config.channelWidth, 2));
     render();
     $('ledMessage').textContent = `${state.paths.length} percurso(s) gerado(s) em modo ${config.rebate ? 'traseiro' : 'frontal'}.`;
     notify('Canal LED gerado. Confira a prévia antes de usinar.');
   }
 
-  function pathD(path) { return `M ${path.points.map(point => `${round(point.x)} ${round(point.y)}`).join(' L ')} Z`; }
+  function pathD(points, closed = true) { return `M ${points.map(point => `${round(point.x)} ${round(point.y)}`).join(' L ')}${closed ? ' Z' : ''}`; }
+  function pathMarkup(path, transform = '') {
+    return LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"${transform} fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round"/>`).join('');
+  }
 
   function renderPreview() {
     const preview = $('ledPreviewSvg');
@@ -88,14 +101,14 @@
     const source = rows.map(row => `<g transform="translate(${round(row.x)} ${round(row.y)}) scale(${round(row.piece.sx)} ${round(row.piece.sy)}) translate(${-round(row.piece.bbox.x)} ${-round(row.piece.bbox.y)})" fill="none" stroke="#EC268F" stroke-width="${round(1.4 / Math.min(row.piece.sx, row.piece.sy))}">${row.piece.cutMarkup}</g>`).join('');
     const channels = state.paths.map(path => {
       const row = rows.find(item => item.piece === path.piece);
-      return `<path d="${pathD(path)}" transform="translate(${round(row.x - path.piece.bbox.x * path.piece.sx)} ${round(row.y - path.piece.bbox.y * path.piece.sy)})" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round"/>`;
+      return pathMarkup(path, ` transform="translate(${round(row.x - path.piece.bbox.x * path.piece.sx)} ${round(row.y - path.piece.bbox.y * path.piece.sy)})"`);
     }).join('');
     preview.setAttribute('viewBox', `0 0 ${round(width)} ${round(height)}`);
     preview.innerHTML = `<rect width="100%" height="100%" fill="#fff"/><text x="20" y="27" fill="#56715e" font-size="18" font-family="Arial">${state.config.rebate ? 'LED TRASEIRO · percurso externo' : 'LED FRONTAL · percurso interno'}</text>${source}${channels}`;
   }
 
   function render() {
-    const length = state.paths.reduce((sum, path) => sum + path.perimeter, 0);
+    const length = state.paths.reduce((sum, path) => sum + LedGeometry.visibleLength(path), 0);
     $('ledFileName').textContent = state.filename || 'Nenhum arquivo';
     $('ledFileDetail').textContent = state.filename ? `${state.pieces.length} peça(s), ${state.contours.length} contorno(s)` : 'Importe um SVG com contornos fechados.';
     $('ledPieceCount').textContent = state.pieces.length; $('ledContourCount').textContent = state.paths.length;
@@ -105,14 +118,17 @@
     if (!state.paths.length) { const item = document.createElement('p'); item.textContent = 'Importe um SVG para listar os percursos.'; list.appendChild(item); }
     else for (const path of state.paths) {
       const card = document.createElement('div'); card.className = 'lb-result-card';
-      card.innerHTML = `<strong>${escapeXml(path.piece.name)} · contorno ${path.contourIndex} ${path.kind}</strong><span>${format(path.perimeter, 1)} mm · canal ${format(state.config.channelWidth, 1)} mm</span><span>${state.config.rebate ? 'LED atrás da peça' : 'LED dentro da peça'}</span>`;
+      card.innerHTML = `<strong>${escapeXml(path.piece.name)} · contorno ${path.contourIndex} ${path.kind}</strong><span>${format(LedGeometry.visibleLength(path), 1)} mm · canal ${format(state.config.channelWidth, 1)} mm</span><span>${state.config.rebate ? 'LED atrás da peça' : 'LED dentro da peça'}</span>`;
       list.appendChild(card);
     }
     renderPreview();
   }
 
   function exportedSvg() {
-    const groups = state.paths.map((path, index) => `<g id="led_${String(index + 1).padStart(3, '0')}" data-peca="${escapeXml(path.piece.name)}" data-contorno="${path.contourIndex}" data-modo="${state.config.rebate ? 'traseiro' : 'frontal'}"><g data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}"><path d="${pathD(path)}"/></g></g>`).join('');
+    const groups = state.paths.map((path, index) => {
+      const paths = LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"/>`).join('');
+      return paths ? `<g id="led_${String(index + 1).padStart(3, '0')}" data-peca="${escapeXml(path.piece.name)}" data-contorno="${path.contourIndex}" data-modo="${state.config.rebate ? 'traseiro' : 'frontal'}"><g data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linecap="round">${paths}</g></g>` : '';
+    }).join('');
     const bounds = state.paths.flatMap(path => path.points);
     const minX = Math.min(...bounds.map(point => point.x)) - state.config.channelWidth;
     const minY = Math.min(...bounds.map(point => point.y)) - state.config.channelWidth;

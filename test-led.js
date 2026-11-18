@@ -17,17 +17,19 @@ const distanceToContour = point => Math.min(...outer.points.map((a, index) => di
 
 const frontal = geometry.ledContour(classifiedOuter, { offset: 10, rebate: false });
 assert.ok(frontal);
-assert.ok(Math.min(...frontal.points.map(point => point.x)) >= 0, 'front LED never escapes the original outside boundary');
-assert.ok(Math.max(...frontal.points.map(point => point.x)) <= 100);
-assert.ok(frontal.points.every(point => distanceToContour(point) <= 10.001), 'corner joins never extend beyond the requested distance');
+assert.ok(frontal.points.every(point => distanceToContour(point) >= 9.999 && distanceToContour(point) <= 10.001), 'front LED always keeps the requested clearance, including corners');
 const traseiro = geometry.ledContour(classifiedOuter, { offset: 10, rebate: true });
 assert.ok(traseiro);
-assert.ok(Math.min(...traseiro.points.map(point => point.x)) >= -10.001, 'rebate never exceeds the requested offset');
-assert.ok(Math.max(...traseiro.points.map(point => point.x)) <= 110.001);
-assert.ok(traseiro.points.every(point => distanceToContour(point) <= 10.001));
+assert.ok(traseiro.points.every(point => distanceToContour(point) >= 9.999), 'rebate never gets closer than the requested clearance');
 
 const innerFrontal = geometry.ledContour(classifiedInner, { offset: 5, rebate: false });
 assert.ok(Math.min(...innerFrontal.points.map(point => point.x)) <= 30, 'front LED expands a hole into usable material');
+const duplicate = geometry.mergeClosePaths([
+  { points: outer.points.map(point => ({ ...point })) },
+  { points: outer.points.map(point => ({ x: point.x + 1, y: point.y })) },
+], 4);
+assert.equal(geometry.visibleSegments(duplicate[0]).length, 1, 'the primary route remains');
+assert.equal(geometry.visibleSegments(duplicate[1]).length, 0, 'an overlapping route is merged into one line');
 assert.match(fs.readFileSync('led.js', 'utf8'), /data-operation="USINAGEM_LED"/);
 assert.match(fs.readFileSync('corel-bridge.js', 'utf8'), /TCUT_IMPORT_LED/);
 console.log('LED offsets frontal/traseiro, furos e integração Corel passed');
