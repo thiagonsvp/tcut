@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -21,11 +20,14 @@ namespace TCutDocker
         private readonly TextBlock status;
         private readonly WebView2 web;
         private readonly DispatcherTimer readyTimer;
+        private readonly object corelApplication;
         private bool messageHookInstalled;
         private int readyAttempts;
 
-        public TCutPanel()
+        // CorelDRAW's wpfhost passes its in-process Application to the control.
+        public TCutPanel(object application)
         {
+            corelApplication = application;
             var root = new Grid { Background = new SolidColorBrush(Color.FromRgb(244, 247, 243)) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -163,10 +165,11 @@ namespace TCutDocker
             catch { }
         }
 
-        private static dynamic CorelApp()
+        private dynamic CorelApp()
         {
-            try { return Marshal.GetActiveObject("CorelDRAW.Application.26"); }
-            catch { return Marshal.GetActiveObject("CorelDRAW.Application"); }
+            if (corelApplication == null)
+                throw new InvalidOperationException("O CorelDRAW não forneceu a aplicação ao painel.");
+            return corelApplication;
         }
 
         private void SendSelection()
