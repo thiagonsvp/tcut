@@ -41,7 +41,7 @@ Reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. No desenho,
 
 O instalador grava os arquivos do painel em `C:\Program Files\Corel\CorelDRAW Graphics Suite\26\Programs64\Addons\TCutDocker` e salva o caminho desta pasta do projeto em `project-path.txt`. Se mover o projeto, execute o instalador novamente. O código-fonte do painel está em `corel/webview2/TCutPanel.cs`; `corel/webview2/build.ps1` recompila a DLL.
 
-Na aba **Plano de corte**, **Aplicar no Corel** substitui somente as peças usadas na seleção por um novo conjunto de vetores organizados. Se o plano tiver várias chapas, elas entram lado a lado, com um espaço entre elas. A operação pode ser desfeita com um único **Ctrl+Z**. Na aba **Letra caixa**, as tiras são acrescentadas e as letras originais permanecem no documento.
+Na aba **Plano de corte**, **Aplicar no Corel** substitui somente as peças usadas na seleção por um novo conjunto de vetores organizados. Se o plano tiver várias chapas, elas entram lado a lado, com um espaço entre elas. A operação pode ser desfeita com um único **Ctrl+Z**. Nas abas **Letra caixa** e **LED**, os novos vetores são acrescentados e as letras originais permanecem no documento.
 
 Para retirar o painel, execute `& '.\corel\remover-painel.ps1'` em um PowerShell como administrador e reinicie o CorelDRAW.
 
@@ -72,6 +72,12 @@ Na aba **Letra caixa**, importe um SVG com contornos de corte fechados e escala 
 As tiras são calculadas sobre o comprimento **nominal do contorno da face**. A espessura do ACM é registrada no SVG para conferência, mas não aplica automaticamente desconto ou acréscimo de dobra. O SVG de saída mantém cada tira agrupada com seu corte rosa e suas marcas verdes; o DXF usa as camadas `CORTE` e `USINAGEM`. A exportação contém apenas as tiras, sem as faces da prévia.
 
 As marcas verdes indicam posições de usinagem, não trajetórias de ferramenta com profundidade Z. Configure a fresa, a profundidade e a compensação necessária no CAM e faça uma peça de prova antes da produção. O [guia de fabricação do DIBOND da 3A Composites](https://cdn.3acompositesusa.com/downloads/DIBOND_Fabguide0725.pdf) descreve o fresamento antes da dobra e a necessidade de preservar a pele externa do painel.
+
+## LED
+
+Na aba **LED**, selecione no CorelDRAW as letras ou objetos fechados e clique em **Usar seleção do Corel**. O T-Cut cria um percurso amarelo de usinagem por contorno e mantém cada letra ou objeto em seu próprio grupo no SVG de saída.
+
+O modo padrão é **frontal**: para contornos externos o percurso entra na peça; nos vazados, ele se afasta do vazio para permanecer no material. Ative **Rebater para trás** para inverter esse sentido, criando o percurso externo destinado ao LED atrás da letra. Ajuste a distância ao perímetro e a largura visual do canal conforme a fresa e o LED usados. A largura indicada é referência visual do canal: confirme a estratégia, profundidade e compensação no CAM e faça um teste antes de produzir.
 
 ## Limites importantes
 

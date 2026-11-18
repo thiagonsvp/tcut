@@ -14,6 +14,7 @@
       <div class="side-label">WORKSPACE</div>
       <button id="nestingTab" class="nav-item active" type="button"><span class="nav-icon">▦</span> Plano de corte</button>
       <button id="letterboxTab" class="nav-item" type="button"><span class="nav-icon">▤</span> Letra caixa</button>
+      <button id="ledTab" class="nav-item" type="button"><span class="nav-icon">✦</span> LED</button>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-note"><div class="note-dot"></div><div><strong>Pronto para produzir</strong><span>Seu projeto fica neste navegador.</span></div></div>
       <div class="sidebar-footer">T-CUT <span>v1.0</span></div>
@@ -74,6 +75,22 @@
         <section class="panel lb-results"><div class="panel-head"><div><div class="section-kicker">03 / PRODUÇÃO</div><h2>Lista de tiras</h2></div><span id="lbResultsCount" class="count-badge">0</span></div><div id="lbResultsList" class="lb-results-list"><p>Importe um SVG para listar as tiras.</p></div></section>
         <div class="bottom-hint"><span>ⓘ</span><p><strong>Antes de usinar:</strong> as linhas verdes indicam as posições das dobras. Defina a ferramenta, a profundidade Z e a compensação de espessura no CAM; faça uma peça de prova para conferir o encaixe. O SVG e o DXF exportam somente as tiras.</p></div>
       </div>
+      <div id="ledView" class="page-content led-view hidden">
+        <div class="page-heading"><div><div class="eyebrow">ILUMINAÇÃO <span class="eyebrow-line"></span> LED</div><h1>Canal de LED<span class="accent-dot">.</span></h1><p>Gere o contorno de usinagem ao redor das letras ou objetos.</p></div><div class="heading-actions"><button id="ledImportButton" class="button secondary" type="button"><span class="button-icon">↥</span> Importar SVG</button><button class="button secondary corel-control hidden" data-corel-receive type="button">↥ Receber do Corel</button><button id="ledResetButton" class="button secondary" type="button">↺ Resetar</button><button class="button secondary corel-control hidden" data-corel-send="led" type="button">↧ Aplicar no Corel</button><button id="ledExportSvg" class="button dark" type="button" disabled>↧ SVG</button><input id="ledFileInput" type="file" accept=".svg,image/svg+xml" hidden /></div></div>
+        <div class="lb-metrics"><div class="metric"><div class="metric-top">PEÇAS <span class="metric-symbol">◇</span></div><div class="metric-value"><strong id="ledPieceCount">0</strong><span>un.</span></div><div class="metric-bottom">Letras ou objetos</div></div><div class="metric"><div class="metric-top">CONTORNOS <span class="metric-symbol">◉</span></div><div class="metric-value"><strong id="ledContourCount">0</strong><span>un.</span></div><div class="metric-bottom">Percursos de LED</div></div><div class="metric"><div class="metric-top">COMPRIMENTO <span class="metric-symbol">↔</span></div><div class="metric-value"><strong id="ledLength">0</strong><span>m</span></div><div class="metric-bottom">Canal total</div></div><div class="metric"><div class="metric-top">MODO <span class="metric-symbol">✦</span></div><div class="metric-value"><strong id="ledModeMetric">Frente</strong></div><div class="metric-bottom">Posição do LED</div></div></div>
+        <div class="lb-workspace">
+          <section class="panel lb-settings"><div class="panel-head"><div><div class="section-kicker">01 / CONFIGURAÇÃO</div><h2>Canal de LED</h2></div><span class="panel-head-icon">⚙</span></div><div class="lb-controls">
+            <div class="lb-file"><strong id="ledFileName">Nenhum arquivo</strong><small id="ledFileDetail">Importe um SVG com contornos fechados.</small></div>
+            <div class="lb-field-grid"><label>Distância do contorno <span class="input-wrap"><input id="ledOffset" type="number" min="0.5" step="0.5" value="20" /><span>mm</span></span></label><label>Largura do canal <span class="input-wrap"><input id="ledChannelWidth" type="number" min="0.5" step="0.5" value="8" /><span>mm</span></span></label></div>
+            <label class="toggle-row" for="ledRebate"><span><strong>Rebater para trás</strong><small>Cria o percurso externo para LED atrás da letra</small></span><input id="ledRebate" type="checkbox" /><span class="switch"></span></label>
+            <p class="lb-help">Na frente, o percurso fica dentro da peça. Com rebater, o contorno é deslocado para fora, formando o canal para iluminação traseira.</p>
+            <button id="ledGenerateButton" class="button optimize" type="button"><span>✦</span> Gerar canal LED <span class="arrow">→</span></button><div id="ledMessage" class="settings-message">Importe um SVG para começar.</div>
+          </div></section>
+          <section class="panel lb-preview-panel"><div class="panel-head"><div><div class="section-kicker">02 / VISUALIZAÇÃO</div><h2>Contorno de usinagem</h2></div><span class="lb-scale">Original rosa · LED amarelo</span></div><div class="lb-preview-scroll"><div id="ledEmpty" class="lb-empty"><div class="empty-art"><div class="empty-sheet"><i></i><i></i><i></i><i></i></div><span>✦</span></div><strong>O canal de LED aparecerá aqui</strong><p>Importe letras ou objetos fechados para gerar os percursos.</p></div><svg id="ledPreviewSvg" class="hidden" xmlns="http://www.w3.org/2000/svg"></svg></div><div class="lb-preview-footer"><span><i class="legend-dot cut"></i> Contorno original</span><span><i class="legend-dot led"></i> Usinagem LED</span><span>Confira a largura da fresa no CAM</span></div></section>
+        </div>
+        <section class="panel lb-results"><div class="panel-head"><div><div class="section-kicker">03 / PRODUÇÃO</div><h2>Percursos gerados</h2></div><span id="ledResultsCount" class="count-badge">0</span></div><div id="ledResultsList" class="lb-results-list"><p>Importe um SVG para listar os percursos.</p></div></section>
+        <div class="bottom-hint"><span>ⓘ</span><p><strong>Antes de usinar:</strong> confira a prévia e faça uma peça de teste. O arquivo exportado contém somente os percursos de usinagem LED, em amarelo, preservados em grupos por letra ou objeto.</p></div>
+      </div>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status"></div>
@@ -82,6 +99,8 @@
   <script src="app.js"></script>
   <script src="letterbox-geometry.js"></script>
   <script src="letterbox.js"></script>
+  <script src="led-geometry.js"></script>
+  <script src="led.js"></script>
   <script src="corel-bridge.js"></script>
 </body>
 </html>

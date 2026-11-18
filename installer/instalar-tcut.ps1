@@ -121,7 +121,7 @@ $dockerPath = Join-Path $addons 'TCutDocker'
 
 Write-Host "Instalando T-Cut para CorelDRAW $CorelYear..."
 New-Item -ItemType Directory -Path $appPath, $dockerPath -Force | Out-Null
-$appFiles = @('app.js', 'corel-bridge.js', 'index.html', 'irregular.js', 'letterbox.js', 'letterbox-geometry.js', 'server.js', 'style.css', 'README.md', 'pvc 15mm 2.svg')
+$appFiles = @('app.js', 'corel-bridge.js', 'index.html', 'irregular.js', 'letterbox.js', 'letterbox-geometry.js', 'led.js', 'led-geometry.js', 'server.js', 'style.css', 'README.md', 'pvc 15mm 2.svg')
 foreach ($name in $appFiles) {
   Copy-Item -LiteralPath (Join-Path $SourceRoot $name) -Destination (Join-Path $appPath $name) -Force
 }

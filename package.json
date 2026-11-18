@@ -5,6 +5,6 @@
   "description": "Planejador de nesting para corte CNC",
   "scripts": {
     "start": "node server.js",
-    "test": "node test-nesting.js && node test-irregular.js && node test-export.js && node test-dxf.js && node test-letterbox.js && node test-corel-bridge.js && node test-corel-panel.js"
+    "test": "node test-nesting.js && node test-irregular.js && node test-export.js && node test-dxf.js && node test-letterbox.js && node test-led.js && node test-corel-bridge.js && node test-corel-panel.js"
   }
 }

@@ -7,8 +7,10 @@
     const letterbox = name === 'letterbox';
     $('nestingView').classList.toggle('hidden', letterbox);
     $('letterboxView').classList.toggle('hidden', !letterbox);
+    $('ledView').classList.add('hidden');
     $('nestingTab').classList.toggle('active', !letterbox);
     $('letterboxTab').classList.toggle('active', letterbox);
+    $('ledTab').classList.remove('active');
     $('currentSection').textContent = letterbox ? 'LETRA CAIXA' : 'PLANO DE CORTE';
   }
 

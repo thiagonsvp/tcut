@@ -17,19 +17,20 @@ async function main() {
   const receive = element();
   const send = element({ corelSend: 'nesting' });
   const letterboxSend = element({ corelSend: 'letterbox' });
+  const ledSend = element({ corelSend: 'led' });
   const ids = Object.fromEntries(
-    ['importButton', 'lbImportButton', 'emptyState', 'fileName', 'fileSubtitle', 'placedDetail', 'settingsMessage', 'lbFileName', 'lbFileDetail', 'lbMessage', 'lbResultsList', 'piecesList', 'resetButton', 'lbResetButton', 'letterboxView', 'nestingView']
+    ['importButton', 'lbImportButton', 'ledImportButton', 'emptyState', 'fileName', 'fileSubtitle', 'placedDetail', 'settingsMessage', 'lbFileName', 'lbFileDetail', 'lbMessage', 'lbResultsList', 'ledFileName', 'ledFileDetail', 'ledMessage', 'ledResultsList', 'piecesList', 'resetButton', 'lbResetButton', 'ledResetButton', 'letterboxView', 'ledView', 'nestingView']
       .map(id => [id, element()])
   );
   const messages = [];
   const posts = [];
-  const controls = [receive, send, letterboxSend];
+  const controls = [receive, send, letterboxSend, ledSend];
   const document = {
     body: { classList: { add() {} } },
     querySelectorAll(selector) {
       if (selector === '.corel-control') return controls;
       if (selector === '[data-corel-receive]') return [receive];
-      if (selector === '[data-corel-send]') return [send, letterboxSend];
+      if (selector === '[data-corel-send]') return [send, letterboxSend, ledSend];
       return [];
     },
   };
@@ -40,6 +41,7 @@ async function main() {
       chrome: { webview: { postMessage: value => messages.push(value) } },
       TCutNestingBridge: { exportSvg: () => '<svg></svg>' },
       TCutLetterboxBridge: { exportSvg: () => '<svg id="tiras"></svg>' },
+      TCutLedBridge: { exportSvg: () => '<svg id="led"></svg>' },
     },
     fetch: async (url, options) => {
       posts.push({ url, options });
@@ -60,8 +62,11 @@ async function main() {
   await letterboxSend.listeners.click();
   assert.equal(posts[1].options.body, '<svg id="tiras"></svg>');
   assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX']);
+  await ledSend.listeners.click();
+  assert.equal(posts[2].options.body, '<svg id="led"></svg>');
+  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_IMPORT_LED']);
   ids.resetButton.listeners.click();
-  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_CLEAR_SOURCE']);
+  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_IMPORT_LED', 'TCUT_CLEAR_SOURCE']);
   console.log('Painel Corel: seleção e aplicação sem escolha manual de arquivo');
 }
 

@@ -38,7 +38,7 @@ namespace TCutDocker
 
             var bar = new StackPanel { Background = new SolidColorBrush(Color.FromRgb(20, 38, 30)), Margin = new Thickness(0) };
             var title = new TextBlock {
-                Text = "T-CUT  |  NESTING + LETRA CAIXA",
+                Text = "T-CUT  |  NESTING + LETRA CAIXA + LED",
                 FontSize = 13, FontWeight = FontWeights.Bold,
                 Foreground = Brushes.White, Margin = new Thickness(11, 10, 8, 6)
             };
@@ -250,7 +250,8 @@ namespace TCutDocker
                 return;
             }
             bool replaceSource = message == "TCUT_APPLY_NESTING";
-            if (!replaceSource && message != "TCUT_IMPORT_LETTERBOX") return;
+            bool ledImport = message == "TCUT_IMPORT_LED";
+            if (!replaceSource && message != "TCUT_IMPORT_LETTERBOX" && !ledImport) return;
             try {
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-output.svg");
                 if (!File.Exists(file)) throw new FileNotFoundException("SVG não encontrado");
@@ -262,7 +263,7 @@ namespace TCutDocker
                 if (doc == null) throw new InvalidOperationException("Abra um documento no CorelDRAW");
                 bool imported = false;
                 bool completed = false;
-                doc.BeginCommandGroup(replaceSource ? "T-Cut - reorganizar peças" : "T-Cut - tiras de letra caixa");
+                doc.BeginCommandGroup(replaceSource ? "T-Cut - reorganizar peças" : (ledImport ? "T-Cut - canal LED" : "T-Cut - tiras de letra caixa"));
                 try {
                     Cdr.Layer layer = doc.ActiveLayer;
                     int beforeCount = layer.Shapes.Count;
@@ -282,7 +283,9 @@ namespace TCutDocker
                 }
                 SetStatus(replaceSource
                     ? "Peças reorganizadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
-                    : "Tiras importadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo.");
+                    : (ledImport
+                        ? "Canal LED importado. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
+                        : "Tiras importadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."));
             } catch (Exception ex) { SetStatus("Falha ao importar: " + ex.Message); }
         }
     }
