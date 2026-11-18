@@ -12,6 +12,14 @@ No PowerShell, dentro desta pasta:
 
 Abra **http://localhost:4173** no navegador. Não há instalação de pacotes nem envio dos arquivos para a internet.
 
+## Instalador para outros computadores
+
+O arquivo [T-Cut-Setup-1.0.0.exe](installer/T-Cut-Setup-1.0.0.exe) instala o aplicativo e o painel diretamente no CorelDRAW. Ele inclui o Node.js necessário para o servidor local; o usuário não precisa instalar Node nem copiar a pasta do projeto. O assistente localiza as instalações de **CorelDRAW 2024, 2025 ou 2026 (64 bits)** e permite escolher a pasta `Programs64\Addons` quando houver mais de uma ou quando o Corel estiver em outro disco. A instalação pede permissão de administrador e exige que o CorelDRAW esteja fechado.
+
+Se o Microsoft WebView2 Runtime não estiver presente, o instalador executa o bootstrapper oficial da Microsoft; nesse caso é necessária uma conexão com a internet. Depois da instalação, reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. A remoção fica disponível em **Aplicativos instalados** do Windows. A integração foi testada no CorelDRAW 2025; a instalação nas versões 2024 e 2026 está preparada, mas precisa ser conferida nessas versões antes de uso em produção.
+
+Para gerar novamente o instalador nesta máquina, execute `& '.\installer\build.ps1'`. A compilação usa Inno Setup 7, Node.js v24.18.0 x64, recompila o painel e executa os testes. O executável para distribuição fica em `installer`, e os arquivos temporários de compilação ficam em `installer\output`.
+
 ## Fluxo
 
 1. A página abre vazia, inclusive após atualizar. No CorelDRAW, converta textos em curvas, agrupe os contornos de corte e de usinagem de cada letra e exporte o desenho em SVG com dimensões físicas em milímetros. Cada grupo vira uma peça única; objetos sem grupo entram separadamente.
@@ -19,9 +27,9 @@ Abra **http://localhost:4173** no navegador. Não há instalação de pacotes ne
 3. Clique em **Otimizar contornos**. O programa faz um encaixe inicial rápido e procura espaços livres usando a silhueta das peças, inclusive concavidades e vazados. Navegue entre as chapas com as setas ao lado do número da chapa.
 4. Exporte a chapa selecionada em SVG ou DXF para o CAM. O PDF é produzido pela opção **Salvar como PDF** na janela de impressão do navegador.
 
-## Integração com CorelDRAW 2025
+## Integração com CorelDRAW
 
-O add-on [TCutDocker](corel/docker) adiciona o painel **T-Cut** em **Janela > Janelas de encaixe** no CorelDRAW 2025. Ele usa [Microsoft WebView2](corel/webview2), com mecanismo do Edge, para mostrar a aplicação completa dentro do Corel. A troca de SVG ocorre por arquivos temporários do computador. O painel inicia o servidor local do T-Cut automaticamente.
+O add-on [TCutDocker](corel/docker) adiciona o painel **T-Cut** em **Janela > Janelas de encaixe** no CorelDRAW. Ele usa [Microsoft WebView2](corel/webview2), com mecanismo do Edge, para mostrar a aplicação completa dentro do Corel. A troca de SVG ocorre por arquivos temporários do computador. O painel inicia o servidor local do T-Cut automaticamente.
 
 Para instalar o painel, execute o PowerShell como administrador na pasta do projeto:
 
