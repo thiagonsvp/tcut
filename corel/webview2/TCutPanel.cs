@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -264,13 +267,22 @@ namespace TCutDocker
                 bool imported = false;
                 bool completed = false;
                 doc.BeginCommandGroup(replaceSource ? "T-Cut - reorganizar peças" : (ledImport ? "T-Cut - canal LED" : "T-Cut - tiras de letra caixa"));
+                string ledNote = null;
                 try {
                     Cdr.Layer layer = doc.ActiveLayer;
                     int beforeCount = layer.Shapes.Count;
+                    var beforeIds = new HashSet<int>();
+                    for (int i = 1; i <= beforeCount; i++) beforeIds.Add(layer.Shapes[i].StaticID);
                     layer.Import(file, Cdr.cdrFilter.cdrSVG);
                     imported = true;
                     if (layer.Shapes.Count <= beforeCount)
                         throw new InvalidOperationException("O SVG não criou objetos no CorelDRAW.");
+                    if (ledImport) {
+                        Cdr.ShapeRange added = CorelApp().CreateShapeRange();
+                        for (int i = 1; i <= layer.Shapes.Count; i++)
+                            if (!beforeIds.Contains(layer.Shapes[i].StaticID)) added.Add(layer.Shapes[i]);
+                        ledNote = ArrangeLed(doc, added, File.ReadAllText(file));
+                    }
                     if (replaceSource) sourceShapes.Delete();
                     completed = true;
                 } finally {
@@ -284,9 +296,64 @@ namespace TCutDocker
                 SetStatus(replaceSource
                     ? "Peças reorganizadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
                     : (ledImport
-                        ? "Canal LED importado. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
+                        ? (ledNote ?? "Canal LED aplicado sobre as peças de origem, agrupado por peça. Ctrl+Z desfaz tudo.")
                         : "Tiras importadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."));
             } catch (Exception ex) { SetStatus("Falha ao importar: " + ex.Message); }
+        }
+
+        // Leaves one group per source piece and moves the import so its channel
+        // geometry sits where it was computed relative to the selected pieces.
+        // Returns a status message when the import could not be aligned.
+        private string ArrangeLed(Cdr.Document doc, Cdr.ShapeRange added, string svg)
+        {
+            if (added.Count == 0) return "Canal LED importado, mas os objetos novos não foram identificados.";
+            int expected;
+            if (!Int32.TryParse(SvgAttribute(svg, "data-pieces"), NumberStyles.Integer, CultureInfo.InvariantCulture, out expected)) expected = 0;
+            // Corel wraps the SVG document in an extra group; unwrap it so each
+            // piece's group is a top-level object.
+            while (added.Count == 1 && added[1].Type == Cdr.cdrShapeType.cdrGroupShape) {
+                Cdr.Shape only = added[1];
+                bool wrapper = expected > 1
+                    || (only.Shapes.Count == 1 && only.Shapes[1].Type == Cdr.cdrShapeType.cdrGroupShape);
+                if (!wrapper) break;
+                added = only.UngroupEx();
+            }
+
+            double[] reference = SvgBox(svg, "data-ref-bbox"), led = SvgBox(svg, "data-led-bbox");
+            if (reference == null || led == null || reference[2] <= 0 || reference[3] <= 0)
+                return "Canal LED importado sem dados de posição. Gere o canal novamente.";
+            if (sourceShapes == null || sourceShapes.Count == 0 || sourceDocument == null || !sourceDocument.Active)
+                return "Canal LED importado, mas a seleção de origem não está mais disponível para alinhar. Clique em Usar seleção do Corel e aplique de novo.";
+            double sx, sy, sw, sh, ix, iy, iw, ih;
+            try { sourceShapes.GetBoundingBox(out sx, out sy, out sw, out sh, false); }
+            catch { return "Canal LED importado, mas as peças de origem foram apagadas ou alteradas. Envie a seleção novamente."; }
+            added.GetBoundingBox(out ix, out iy, out iw, out ih, false);
+            // SVG Y grows downwards; Corel Y grows upwards and GetBoundingBox
+            // returns the lower-left corner. The ratios also convert mm to the
+            // document unit.
+            double kx = sw / reference[2], ky = sh / reference[3];
+            double left = sx + (led[0] - reference[0]) * kx;
+            double top = sy + sh - (led[1] - reference[1]) * ky;
+            added.Move(left - ix, top - (iy + ih));
+            return null;
+        }
+
+        private static string SvgAttribute(string svg, string name)
+        {
+            var match = Regex.Match(svg, "<svg\\b[^>]*\\s" + Regex.Escape(name) + "=\"([^\"]*)\"");
+            return match.Success ? match.Groups[1].Value : null;
+        }
+
+        private static double[] SvgBox(string svg, string name)
+        {
+            var text = SvgAttribute(svg, name);
+            if (text == null) return null;
+            var parts = text.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 4) return null;
+            var values = new double[4];
+            for (int i = 0; i < 4; i++)
+                if (!Double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i])) return null;
+            return values;
         }
     }
 }

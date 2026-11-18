@@ -134,19 +134,33 @@
     renderPreview();
   }
 
+  const box = () => ({ minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+  const grow = (target, x, y) => { target.minX = Math.min(target.minX, x); target.minY = Math.min(target.minY, y); target.maxX = Math.max(target.maxX, x); target.maxY = Math.max(target.maxY, y); };
+  const boxAttr = b => `${round(b.minX)} ${round(b.minY)} ${round(b.maxX - b.minX)} ${round(b.maxY - b.minY)}`;
+
+  // One group per source piece. The panel uses data-ref-bbox (the selected
+  // pieces, in this SVG's millimetre frame) and data-led-bbox (the channel
+  // geometry, without stroke) to place the import exactly over the originals.
   function exportedSvg() {
-    const groups = state.paths.map((path, index) => {
-      const paths = LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"/>`).join('');
-      return paths ? `<g id="led_${String(index + 1).padStart(3, '0')}" data-peca="${escapeXml(path.piece.name)}" data-contorno="${path.contourIndex}" data-modo="${state.config.rebate ? 'traseiro' : 'frontal'}"><g data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g></g>` : '';
-    }).join('');
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const path of state.paths) for (const point of path.points) {
-      minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
-      maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+    const mode = state.config.rebate ? 'traseiro' : 'frontal';
+    const led = box(), ref = box();
+    for (const piece of state.pieces) {
+      grow(ref, piece.bbox.x * piece.sx, piece.bbox.y * piece.sy);
+      grow(ref, piece.bbox.x * piece.sx + piece.width, piece.bbox.y * piece.sy + piece.height);
     }
-    minX -= state.config.channelWidth; minY -= state.config.channelWidth;
-    maxX += state.config.channelWidth; maxY += state.config.channelWidth;
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(maxX - minX)}mm" height="${round(maxY - minY)}mm" viewBox="${round(minX)} ${round(minY)} ${round(maxX - minX)} ${round(maxY - minY)}" data-tcut="led" data-led-mode="${state.config.rebate ? 'traseiro' : 'frontal'}" data-channel-width-mm="${round(state.config.channelWidth)}"><title>T-Cut · canal LED</title>${groups}</svg>`;
+    let pieceCount = 0;
+    const groups = state.pieces.map(piece => {
+      const paths = state.paths.filter(path => path.piece === piece).flatMap(path => LedGeometry.visibleSegments(path).map(segment => {
+        for (const point of segment.points) grow(led, point.x, point.y);
+        return `<path data-contorno="${path.contourIndex}" d="${pathD(segment.points, segment.closed)}"/>`;
+      })).join('');
+      if (!paths) return '';
+      pieceCount++;
+      return `<g id="LED_${escapeXml(piece.name.replace(/\s+/g, '_'))}" data-peca="${escapeXml(piece.name)}" data-modo="${mode}" data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g>`;
+    }).join('');
+    const pad = state.config.channelWidth;
+    const frame = { minX: led.minX - pad, minY: led.minY - pad, maxX: led.maxX + pad, maxY: led.maxY + pad };
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(frame.maxX - frame.minX)}mm" height="${round(frame.maxY - frame.minY)}mm" viewBox="${boxAttr(frame)}" data-tcut="led" data-led-mode="${mode}" data-channel-width-mm="${round(state.config.channelWidth)}" data-pieces="${pieceCount}" data-ref-bbox="${boxAttr(ref)}" data-led-bbox="${boxAttr(led)}"><title>T-Cut · canal LED</title>${groups}</svg>`;
   }
 
   function reset() {
