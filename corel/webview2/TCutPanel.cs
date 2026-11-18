@@ -38,11 +38,7 @@ namespace TCutDocker
             };
             bar.Children.Add(title);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 0, 8, 6) };
-            var send = MakeButton("Enviar seleção", SendSelection);
-            var import = MakeButton("Importar resultado", ImportResult);
             var reload = MakeButton("Recarregar", Reload);
-            actions.Children.Add(send);
-            actions.Children.Add(import);
             actions.Children.Add(reload);
             bar.Children.Add(actions);
             status = new TextBlock {
@@ -109,7 +105,7 @@ namespace TCutDocker
         private void Navigate()
         {
             if (web.Source == null || web.Source.ToString() != LocalUrl) web.Source = new Uri(LocalUrl);
-            SetStatus("T-Cut local conectado. Selecione as peças no CorelDRAW.");
+            SetStatus("Selecione as peças no desenho e clique em Usar seleção do Corel.");
         }
 
         private void Reload(object sender, RoutedEventArgs e)
@@ -173,7 +169,7 @@ namespace TCutDocker
             catch { return Marshal.GetActiveObject("CorelDRAW.Application"); }
         }
 
-        private void SendSelection(object sender, RoutedEventArgs e)
+        private void SendSelection()
         {
             if (web.CoreWebView2 == null) {
                 SetStatus("Aguarde o T-Cut carregar.");
@@ -193,19 +189,6 @@ namespace TCutDocker
                     "if(window.TCutCorelBridge){window.TCutCorelBridge.receiveCurrent()}" +
                     "else{chrome.webview.postMessage('TCUT_NOT_READY')}");
             } catch (Exception ex) { SetStatus("Falha ao enviar a seleção: " + ex.Message); }
-        }
-
-        private void ImportResult(object sender, RoutedEventArgs e)
-        {
-            if (web.CoreWebView2 == null) {
-                SetStatus("Aguarde o T-Cut carregar.");
-                return;
-            }
-            SetStatus("Gerando SVG para importar no CorelDRAW...");
-            web.CoreWebView2.ExecuteScriptAsync(
-                "if(window.TCutCorelBridge){window.TCutCorelBridge.sendCurrent().then(function(ok){" +
-                "if(ok) chrome.webview.postMessage('TCUT_IMPORT');" +
-                "})}else{chrome.webview.postMessage('TCUT_NOT_READY')}");
         }
 
         private void OnNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
@@ -232,6 +215,10 @@ namespace TCutDocker
             var message = e.TryGetWebMessageAsString();
             if (message == "TCUT_NOT_READY") {
                 SetStatus("Aguarde a área de trabalho carregar e tente novamente.");
+                return;
+            }
+            if (message == "TCUT_SEND") {
+                SendSelection();
                 return;
             }
             if (message != "TCUT_IMPORT") return;

@@ -4,7 +4,28 @@
   const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (!local) return;
 
-  if (!docker) document.querySelectorAll('.corel-control').forEach(button => button.classList.remove('hidden'));
+  document.querySelectorAll('.corel-control').forEach(button => button.classList.remove('hidden'));
+  if (docker) {
+    $('importButton').classList.add('hidden');
+    $('lbImportButton').classList.add('hidden');
+    document.querySelectorAll('[data-corel-receive]').forEach(button => { button.textContent = 'Usar seleção do Corel'; });
+    document.querySelectorAll('[data-corel-send]').forEach(button => { button.textContent = 'Aplicar no Corel'; });
+    const showSelectionHints = () => {
+      $('fileName').textContent = 'Nenhuma seleção';
+      $('fileSubtitle').textContent = 'Use a seleção do desenho';
+      $('placedDetail').textContent = 'Aguardando seleção';
+      $('settingsMessage').textContent = 'Selecione as peças no Corel e clique em Usar seleção do Corel.';
+      $('lbFileName').textContent = 'Nenhuma seleção';
+      $('lbFileDetail').textContent = 'Selecione letras fechadas no CorelDRAW.';
+      $('lbMessage').textContent = 'Use a seleção do Corel para gerar as tiras.';
+      $('lbResultsList').querySelector('p')?.replaceChildren('Use a seleção do Corel para listar as tiras.');
+      $('piecesList').querySelector('.pieces-empty')?.replaceChildren('As peças selecionadas aparecerão aqui.');
+    };
+    $('emptyState').querySelector('p').textContent = 'Selecione as peças no CorelDRAW e clique em Usar seleção do Corel.';
+    showSelectionHints();
+    $('resetButton').addEventListener('click', showSelectionHints);
+    $('lbResetButton').addEventListener('click', showSelectionHints);
+  }
 
   async function receive(button) {
     button.disabled = true;
@@ -36,7 +57,7 @@
         body: svg,
       });
       if (!response.ok) throw new Error(await response.text());
-      notify('SVG pronto. No CorelDRAW, execute “T-Cut - Importar resultado”.');
+      notify(docker ? 'Aplicando o resultado no documento do CorelDRAW...' : 'SVG pronto. No CorelDRAW, execute “T-Cut - Importar resultado”.');
       return true;
     } catch (error) {
       notify(error.message || 'Falha ao enviar o resultado ao CorelDRAW.', true);
@@ -46,8 +67,17 @@
     }
   }
 
-  document.querySelectorAll('[data-corel-receive]').forEach(button => button.addEventListener('click', () => receive(button)));
-  document.querySelectorAll('[data-corel-send]').forEach(button => button.addEventListener('click', () => send(button)));
+  document.querySelectorAll('[data-corel-receive]').forEach(button => button.addEventListener('click', () => {
+    if (docker) {
+      if (window.chrome?.webview) window.chrome.webview.postMessage('TCUT_SEND');
+      else notify('Abra o painel T-Cut dentro do CorelDRAW.', true);
+    } else receive(button);
+  }));
+  document.querySelectorAll('[data-corel-send]').forEach(button => button.addEventListener('click', async () => {
+    if (docker && !window.chrome?.webview) { notify('Abra o painel T-Cut dentro do CorelDRAW.', true); return; }
+    const ok = await send(button);
+    if (ok && docker && window.chrome?.webview) window.chrome.webview.postMessage('TCUT_IMPORT');
+  }));
   window.TCutCorelBridge = {
     receiveCurrent() {
       const view = $('letterboxView').classList.contains('hidden') ? $('nestingView') : $('letterboxView');

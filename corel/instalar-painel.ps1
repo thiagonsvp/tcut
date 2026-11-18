@@ -4,6 +4,9 @@ $principal = New-Object Security.Principal.WindowsPrincipal($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
   throw 'Abra o PowerShell como administrador para instalar o painel em Program Files.'
 }
+if (Get-Process -Name 'CorelDRW' -ErrorAction SilentlyContinue) {
+  throw 'Feche o CorelDRAW antes de atualizar o painel T-Cut.'
+}
 $corelSource = Split-Path -Parent $MyInvocation.MyCommand.Path
 $source = Join-Path $corelSource 'docker'
 $webviewSource = Join-Path $corelSource 'webview2'
