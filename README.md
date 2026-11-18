@@ -14,11 +14,11 @@ Abra **http://localhost:4173** no navegador. Não há instalação de pacotes ne
 
 ## Instalador para outros computadores
 
-Use o instalador correspondente ao CorelDRAW instalado: [2020](installer/T-Cut-CorelDRAW-2020-Setup-1.0.1.exe), [2024](installer/T-Cut-CorelDRAW-2024-Setup-1.0.1.exe) ou [2025](installer/T-Cut-CorelDRAW-2025-Setup-1.0.1.exe). Cada pacote instala o aplicativo e gera o painel com a API exata daquela versão. Ele inclui o Node.js necessário para o servidor local; o usuário não precisa instalar Node nem copiar a pasta do projeto. A instalação pede permissão de administrador e exige que o CorelDRAW esteja fechado.
+Baixe o pacote ZIP correspondente ao CorelDRAW instalado: [2020](installer/packages/T-Cut-CorelDRAW-2020-Instalador-1.0.1.zip), [2024](installer/packages/T-Cut-CorelDRAW-2024-Instalador-1.0.1.zip) ou [2025](installer/packages/T-Cut-CorelDRAW-2025-Instalador-1.0.1.zip). Extraia o ZIP, abra o PowerShell na pasta extraída e execute o script **Instalar-T-Cut** da versão correta. O script pede elevação, exige o CorelDRAW fechado e valida a versão antes de copiar qualquer arquivo.
 
-Se o Microsoft WebView2 Runtime não estiver presente, o instalador executa o bootstrapper oficial da Microsoft; nesse caso é necessária uma conexão com a internet. Depois da instalação, reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. A remoção fica disponível em **Aplicativos instalados** do Windows. A integração foi testada no CorelDRAW 2025; os pacotes de 2020 e 2024 precisam ser conferidos nessas versões antes de uso em produção.
+Os ZIPs não carregam executáveis de terceiros. Durante a instalação, quando necessário, o script baixa o Node.js diretamente do site oficial, confere o SHA-256 e a assinatura OpenJS, e baixa o WebView2 diretamente da Microsoft, conferindo a assinatura Microsoft. Por isso é necessária internet somente na primeira instalação, caso esses componentes ainda não estejam presentes. Depois, abra **Janela > Janelas de encaixe > T-Cut**. Para remover, execute o respectivo script **Desinstalar-T-Cut** do mesmo pacote. A integração foi testada no CorelDRAW 2025; os pacotes de 2020 e 2024 precisam ser conferidos nessas versões antes de uso em produção.
 
-Para gerar novamente os instaladores nesta máquina, execute `& '.\installer\build.ps1'`. Para gerar somente uma versão, use por exemplo `& '.\installer\build.ps1' -CorelYear 2025`. A compilação usa Inno Setup 7, Node.js v24.18.0 x64, recompila o painel e executa os testes. Os executáveis para distribuição ficam em `installer`, e os arquivos temporários de compilação ficam em `installer\output`.
+Para gerar os pacotes nesta máquina, execute `& '.\installer\build-packages.ps1'`. Para gerar somente uma versão, use por exemplo `& '.\installer\build-packages.ps1' -CorelYear 2025`. Os ZIPs para distribuição ficam em `installer\packages`.
 
 ## Fluxo
 
