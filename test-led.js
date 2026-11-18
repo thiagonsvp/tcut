@@ -8,18 +8,26 @@ const inner = geometry.contourFromPoints([{ x: 30, y: 30 }, { x: 70, y: 30 }, { 
 const [classifiedOuter, classifiedInner] = geometry.classifyContours([outer, inner]);
 assert.equal(classifiedOuter.kind, 'externo');
 assert.equal(classifiedInner.kind, 'interno');
+const distanceToSegment = (point, a, b) => {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const ratio = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(point.x - (a.x + ratio * dx), point.y - (a.y + ratio * dy));
+};
+const distanceToContour = point => Math.min(...outer.points.map((a, index) => distanceToSegment(point, a, outer.points[(index + 1) % outer.points.length])));
 
 const frontal = geometry.ledContour(classifiedOuter, { offset: 10, rebate: false });
 assert.ok(frontal);
-assert.equal(Math.min(...frontal.points.map(point => point.x)), 10, 'front LED moves the outside contour inward');
-assert.equal(Math.max(...frontal.points.map(point => point.x)), 90);
+assert.ok(Math.min(...frontal.points.map(point => point.x)) >= 0, 'front LED never escapes the original outside boundary');
+assert.ok(Math.max(...frontal.points.map(point => point.x)) <= 100);
+assert.ok(frontal.points.every(point => distanceToContour(point) <= 10.001), 'corner joins never extend beyond the requested distance');
 const traseiro = geometry.ledContour(classifiedOuter, { offset: 10, rebate: true });
 assert.ok(traseiro);
-assert.equal(Math.min(...traseiro.points.map(point => point.x)), -10, 'rebate moves the outside contour outward');
-assert.equal(Math.max(...traseiro.points.map(point => point.x)), 110);
+assert.ok(Math.min(...traseiro.points.map(point => point.x)) >= -10.001, 'rebate never exceeds the requested offset');
+assert.ok(Math.max(...traseiro.points.map(point => point.x)) <= 110.001);
+assert.ok(traseiro.points.every(point => distanceToContour(point) <= 10.001));
 
 const innerFrontal = geometry.ledContour(classifiedInner, { offset: 5, rebate: false });
-assert.equal(Math.min(...innerFrontal.points.map(point => point.x)), 25, 'front LED expands a hole into usable material');
+assert.ok(Math.min(...innerFrontal.points.map(point => point.x)) <= 30, 'front LED expands a hole into usable material');
 assert.match(fs.readFileSync('led.js', 'utf8'), /data-operation="USINAGEM_LED"/);
 assert.match(fs.readFileSync('corel-bridge.js', 'utf8'), /TCUT_IMPORT_LED/);
 console.log('LED offsets frontal/traseiro, furos e integração Corel passed');

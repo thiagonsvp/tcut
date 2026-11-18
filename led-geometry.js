@@ -44,6 +44,9 @@ const LedGeometry = (() => {
   }
 
   // Positive distance moves toward the material interior; negative distance moves outward.
+  // Each sampled point moves by, at most, the requested distance.  This deliberately
+  // uses a bevel/round-like join instead of a miter, because a miter can overshoot the
+  // requested channel distance at a sharp letter corner.
   function offsetContour(contour, distanceMm) {
     const { points, signedArea } = contour;
     const orientation = signedArea >= 0 ? 1 : -1;
@@ -58,10 +61,7 @@ const LedGeometry = (() => {
       const length = Math.hypot(x, y);
       if (length < .0001) { x = b.x; y = b.y; }
       else { x /= length; y /= length; }
-      const alignment = Math.max(.2, Math.abs(x * b.x + y * b.y));
-      // A limit avoids an excessively long miter at very acute corners.
-      const miter = Math.min(Math.abs(distanceMm) / alignment, Math.abs(distanceMm) * 4) * Math.sign(distanceMm || 1);
-      result.push({ x: round(current.x + x * miter), y: round(current.y + y * miter) });
+      result.push({ x: round(current.x + x * distanceMm), y: round(current.y + y * distanceMm) });
     }
     return contourFromPoints([...result, result[0]]);
   }
