@@ -89,8 +89,13 @@ function classStrokeMap(root) {
 }
 
 function shapeOperation(element, colors) {
-  let stroke = element.getAttribute('stroke') || (element.getAttribute('style') || '').match(/(?:^|;)\s*stroke\s*:\s*(#[0-9a-f]{3,8})/i)?.[1];
-  if (!stroke) for (const name of (element.getAttribute('class') || '').split(/\s+/)) if (colors.has(name)) stroke = colors.get(name);
+  const operation = element.closest('[data-operation]')?.getAttribute('data-operation');
+  if (operation === 'USINAGEM' || operation === 'CORTE') return operation;
+  let stroke;
+  for (let current = element; current && !stroke; current = current.parentElement) {
+    stroke = current.getAttribute('stroke') || (current.getAttribute('style') || '').match(/(?:^|;)\s*stroke\s*:\s*(#[0-9a-f]{3,8})/i)?.[1];
+    if (!stroke) for (const name of (current.getAttribute('class') || '').split(/\s+/)) if (colors.has(name)) { stroke = colors.get(name); break; }
+  }
   if (!stroke) return 'CORTE';
   const hex = stroke.slice(1);
   const expanded = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex.slice(0, 6);
