@@ -141,7 +141,9 @@
   // One group per source piece. The panel uses data-ref-bbox (the selected
   // pieces, in this SVG's millimetre frame) and data-led-bbox (the channel
   // geometry, without stroke) to place the import exactly over the originals.
-  function exportedSvg() {
+  // includeSource adds each original piece to its group (file download); the
+  // Corel import leaves it out because the originals are already in the drawing.
+  function exportedSvg(includeSource = false) {
     const mode = state.config.rebate ? 'traseiro' : 'frontal';
     const led = box(), ref = box();
     for (const piece of state.pieces) {
@@ -156,10 +158,18 @@
       })).join('');
       if (!paths) return '';
       pieceCount++;
-      return `<g id="LED_${escapeXml(piece.name.replace(/\s+/g, '_'))}" data-peca="${escapeXml(piece.name)}" data-modo="${mode}" data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g>`;
+      const id = escapeXml(piece.name.replace(/\s+/g, '_'));
+      const channel = `<g id="LED_${id}" data-peca="${escapeXml(piece.name)}" data-modo="${mode}" data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g>`;
+      if (!includeSource) return channel;
+      const source = `<g id="Original_${id}" data-operation="PECA_ORIGINAL" transform="scale(${piece.sx} ${piece.sy})" fill="none" stroke="#EC268F" stroke-width="${round(0.2 / Math.min(piece.sx, piece.sy))}">${piece.markup}</g>`;
+      return `<g id="${id}" data-peca="${escapeXml(piece.name)}">${source}${channel}</g>`;
     }).join('');
     const pad = state.config.channelWidth;
     const frame = { minX: led.minX - pad, minY: led.minY - pad, maxX: led.maxX + pad, maxY: led.maxY + pad };
+    if (includeSource) {
+      frame.minX = Math.min(frame.minX, ref.minX - 1); frame.minY = Math.min(frame.minY, ref.minY - 1);
+      frame.maxX = Math.max(frame.maxX, ref.maxX + 1); frame.maxY = Math.max(frame.maxY, ref.maxY + 1);
+    }
     return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(frame.maxX - frame.minX)}mm" height="${round(frame.maxY - frame.minY)}mm" viewBox="${boxAttr(frame)}" data-tcut="led" data-led-mode="${mode}" data-channel-width-mm="${round(state.config.channelWidth)}" data-pieces="${pieceCount}" data-ref-bbox="${boxAttr(ref)}" data-led-bbox="${boxAttr(led)}"><title>T-Cut · canal LED</title>${groups}</svg>`;
   }
 
@@ -173,7 +183,7 @@
   $('ledTab').addEventListener('click', () => switchTab('led'));
   $('ledImportButton').addEventListener('click', () => $('ledFileInput').click());
   $('ledFileInput').addEventListener('change', async event => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { importSvg(await file.text(), file.name); } catch (error) { notify(error.message, true); } });
-  $('ledGenerateButton').addEventListener('click', generate); $('ledResetButton').addEventListener('click', reset); $('ledExportSvg').addEventListener('click', () => download('t-cut-canal-led.svg', exportedSvg(), 'image/svg+xml'));
+  $('ledGenerateButton').addEventListener('click', generate); $('ledResetButton').addEventListener('click', reset); $('ledExportSvg').addEventListener('click', () => download('t-cut-canal-led.svg', exportedSvg(true), 'image/svg+xml'));
   for (const id of fieldIds) $(id).addEventListener('change', () => {
     if (!state.contours.length) return;
     state.paths = [];

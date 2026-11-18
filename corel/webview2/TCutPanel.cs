@@ -287,12 +287,7 @@ namespace TCutDocker
                     imported = true;
                     if (layer.Shapes.Count <= beforeCount)
                         throw new InvalidOperationException("O SVG não criou objetos no CorelDRAW.");
-                    if (ledImport) {
-                        Cdr.ShapeRange added = CorelApp().CreateShapeRange();
-                        for (int i = 1; i <= layer.Shapes.Count; i++)
-                            if (!beforeIds.Contains(layer.Shapes[i].StaticID)) added.Add(layer.Shapes[i]);
-                        ledNote = ArrangeLed(doc, added, File.ReadAllText(file));
-                    }
+                    if (ledImport) ledNote = ArrangeLed(doc, layer, beforeIds, File.ReadAllText(file));
                     if (replaceSource) sourceShapes.Delete();
                     completed = true;
                 } finally {
@@ -319,8 +314,18 @@ namespace TCutDocker
         // Leaves one group per source piece and moves the import so its channel
         // geometry sits where it was computed relative to the selected pieces.
         // Returns a status message when the import could not be aligned.
-        private string ArrangeLed(Cdr.Document doc, Cdr.ShapeRange added, string svg)
+        // Top-level shapes on the layer that did not exist before the import.
+        private Cdr.ShapeRange NewShapes(Cdr.Layer layer, HashSet<int> beforeIds)
         {
+            Cdr.ShapeRange added = CorelApp().CreateShapeRange();
+            for (int i = 1; i <= layer.Shapes.Count; i++)
+                if (!beforeIds.Contains(layer.Shapes[i].StaticID)) added.Add(layer.Shapes[i]);
+            return added;
+        }
+
+        private string ArrangeLed(Cdr.Document doc, Cdr.Layer layer, HashSet<int> beforeIds, string svg)
+        {
+            Cdr.ShapeRange added = NewShapes(layer, beforeIds);
             Log("LED: " + added.Count + " objeto(s) novo(s) na camada.");
             if (added.Count == 0) return "Canal LED importado, mas os objetos novos não foram identificados.";
             int expected;
@@ -333,9 +338,14 @@ namespace TCutDocker
                 bool wrapper = expected > 1
                     || (only.Shapes.Count == 1 && only.Shapes[1].Type == Cdr.cdrShapeType.cdrGroupShape);
                 if (!wrapper) break;
-                added = only.UngroupEx();
+                // UngroupEx can return an empty range for an imported group, so
+                // ungroup and then collect the new top-level shapes again.
+                only.Ungroup();
+                added = NewShapes(layer, beforeIds);
                 Log("LED: grupo envoltório desfeito, agora " + added.Count + " objeto(s).");
             }
+            if (added.Count == 0)
+                return "Canal LED importado, mas os objetos novos se perderam ao desagrupar; nada foi alinhado.";
 
             double[] reference = SvgBox(svg, "data-ref-bbox"), led = SvgBox(svg, "data-led-bbox");
             if (reference == null || led == null || reference[2] <= 0 || reference[3] <= 0)
