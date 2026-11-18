@@ -19,6 +19,39 @@ Abra **http://localhost:4173** no navegador. Não há instalação de pacotes ne
 3. Clique em **Otimizar contornos**. O programa faz um encaixe inicial rápido e procura espaços livres usando a silhueta das peças, inclusive concavidades e vazados. Navegue entre as chapas com as setas ao lado do número da chapa.
 4. Exporte a chapa selecionada em SVG ou DXF para o CAM. O PDF é produzido pela opção **Salvar como PDF** na janela de impressão do navegador.
 
+## Integração com CorelDRAW 2025
+
+O add-on [TCutDocker](corel/docker) adiciona o painel **T-Cut** em **Janela > Janelas de encaixe** no CorelDRAW 2025. Ele usa [Microsoft WebView2](corel/webview2), com mecanismo do Edge, para mostrar a aplicação completa dentro do Corel. A troca de SVG ocorre por arquivos temporários do computador. O painel inicia o servidor local do T-Cut automaticamente.
+
+Para instalar o painel, execute o PowerShell como administrador na pasta do projeto:
+
+```powershell
+& '.\corel\instalar-painel.ps1'
+```
+
+Reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. Selecione as peças no desenho e clique em **Enviar seleção** no topo do painel; a aba ativa recebe o SVG e processa o plano. Confira o resultado e clique em **Importar resultado** para trazer o SVG gerado à camada ativa do documento. A primeira abertura pode levar alguns segundos enquanto o servidor local e o WebView2 iniciam. A página abre vazia após uma atualização e nenhum arquivo é recebido sem o clique no comando.
+
+O instalador grava os arquivos do painel em `C:\Program Files\Corel\CorelDRAW Graphics Suite\26\Programs64\Addons\TCutDocker` e salva o caminho desta pasta do projeto em `project-path.txt`. Se mover o projeto, execute o instalador novamente. O código-fonte do painel está em `corel/webview2/TCutPanel.cs`; `corel/webview2/build.ps1` recompila a DLL.
+Para retirar o painel, execute `& '.\corel\remover-painel.ps1'` em um PowerShell como administrador e reinicie o CorelDRAW.
+
+Os dois scripts em [corel](corel) continuam disponíveis como alternativa na janela **Scripts** do CorelDRAW. A interface de planejamento também pode ser aberta em `http://localhost:4173`.
+
+Para instalar no CorelDRAW 2025, execute no PowerShell:
+
+```powershell
+& '.\corel\instalar.ps1'
+```
+
+Depois inicie o servidor com `& 'C:\Program Files\nodejs\node.exe' server.js` e abra `http://localhost:4173`. No CorelDRAW, abra **Janela > Janelas de encaixe > Scripts**. Se os scripts não aparecerem automaticamente, use **Carregar** e selecione a pasta `%APPDATA%\Corel\CorelDRAW Graphics Suite 2025\Draw\Scripts\T-Cut`.
+
+1. Converta textos em curvas e agrupe o corte rosa e a usinagem verde de cada letra.
+2. Selecione as peças e execute **T-Cut - Enviar selecao** no CorelDRAW.
+3. Na aba desejada do T-Cut local, clique em **Receber do Corel**. A página continua vazia ao abrir ou atualizar; o recebimento só ocorre ao clicar.
+4. Confira o plano ou as tiras e clique em **Enviar ao Corel**.
+5. No CorelDRAW, ative o documento e a camada de destino e execute **T-Cut - Importar resultado**. Confira escala, cores e agrupamentos antes de produzir.
+
+Cada envio substitui o SVG temporário anterior. O comando de importação adiciona os vetores na camada ativa e não apaga a arte original. O painel foi compilado e a troca de arquivos passou nos testes automatizados; a execução visual dentro do CorelDRAW ainda precisa ser conferida no aplicativo.
+
 O botão **Resetar** limpa o arquivo importado, o mapa e os parâmetros atuais, preservando as chapas salvas. O arquivo `pvc 15mm 2.svg`, com cinco letras agrupadas, permanece na pasta como exemplo para importar manualmente.
 
 ## Letra caixa

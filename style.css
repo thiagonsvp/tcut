@@ -6,3 +6,29 @@
 @media(max-width:920px){.sidebar{width:64px;padding-left:9px;padding-right:9px}.brand{padding:0 5px 34px}.brand>div:last-child,.side-label,.nav-item:not(.active),.nav-item.active{font-size:0}.nav-item.active{justify-content:center;padding:14px}.nav-icon{font-size:20px}.sidebar-note,.sidebar-footer{display:none}.topbar{padding:0 20px}.page-content{padding:25px 20px}.metrics{grid-template-columns:repeat(2,1fr)}.workspace-grid{grid-template-columns:1fr}.settings-panel,.preview-panel{min-height:auto}.pieces-panel{grid-column:auto}.pieces-list{grid-template-columns:repeat(3,1fr)}.settings-body{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.setting-section{border:0;margin:0;padding:0}.button.optimize,.settings-message{grid-column:1/-1}.preview-inner{min-height:410px}.page-heading h1{font-size:32px}}
 .lb-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}.lb-workspace{display:grid;grid-template-columns:310px minmax(0,1fr);gap:14px;align-items:stretch}.lb-settings,.lb-preview-panel{min-height:610px}.lb-controls{padding:18px;display:flex;flex-direction:column;gap:17px}.lb-file{padding:12px;border:1px solid #dcebdc;background:#f5faf4;border-radius:8px;min-width:0}.lb-file strong,.lb-file small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lb-file strong{font-size:11px;color:#315640}.lb-file small{font-size:9px;color:#859e8b;margin-top:5px}.lb-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lb-field-grid label{font-size:10px;color:#617866;font-weight:700;line-height:1.4}.lb-field-grid .input-wrap{margin-top:6px}.lb-help{margin:0;color:#91a193;font-size:10px;line-height:1.55}.lb-preview-panel{display:flex;flex-direction:column}.lb-scale{font-size:9px;color:#879b88}.lb-preview-scroll{flex:1;min-height:480px;overflow:auto;padding:18px;background:#edf2ed;background-image:radial-gradient(#d7e2d6 1px,transparent 1px);background-size:14px 14px}.lb-preview-scroll svg{display:block;min-width:850px;width:100%;height:auto;background:#fff;box-shadow:0 9px 24px #28483027}.lb-empty{min-height:450px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;background:#f9fbf8;border-radius:8px}.lb-empty strong{font:700 16px 'Space Grotesk',sans-serif;color:#354e3b}.lb-empty p{color:#92a392;font-size:10px;line-height:1.6;margin:8px 0 0}.lb-preview-footer{display:flex;align-items:center;gap:16px;padding:12px 18px;color:#7d9685;font-size:9px;border-top:1px solid #eaf0e8}.lb-preview-footer span{display:flex;align-items:center;gap:6px}.lb-preview-footer span:last-child{margin-left:auto}.lb-results{min-height:150px;margin-top:14px}.lb-results-list{padding:16px 18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.lb-results-list>p{color:#9ba99e;font-size:11px}.lb-result-card{border:1px solid #e3ebe1;border-radius:8px;padding:12px;background:#fbfcfa}.lb-result-card strong{display:block;color:#315640;font-size:11px}.lb-result-card span{display:block;margin-top:5px;color:#8a9e8c;font-size:10px}.lb-result-card em{font-style:normal;color:#b1668b}.lb-view .heading-actions .button.dark{min-width:70px}
 @media(max-width:1150px){.lb-workspace{grid-template-columns:1fr}.lb-settings,.lb-preview-panel{min-height:auto}.lb-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.lb-file,.lb-help,.lb-controls .button.optimize,.lb-controls .settings-message{grid-column:1/-1}.lb-results-list{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:920px){.lb-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.lb-controls{grid-template-columns:1fr}.lb-results-list{grid-template-columns:1fr}.lb-view .heading-actions{flex-wrap:wrap;justify-content:flex-end}}
+
+body.docker-mode{min-width:0}
+.docker-mode .app-shell{display:block}
+.docker-mode .sidebar{width:auto;min-height:0;padding:9px 12px;display:flex;flex-direction:row;align-items:center;gap:5px}
+.docker-mode .brand{padding:0 8px 0 0}
+.docker-mode .brand strong{font-size:15px}
+.docker-mode .brand small,.docker-mode .brand-mark,.docker-mode .side-label,.docker-mode .sidebar-note,.docker-mode .sidebar-footer,.docker-mode .sidebar-spacer,.docker-mode .topbar{display:none}
+.docker-mode .nav-item,.docker-mode .nav-item.active{width:auto;font-size:11px;padding:9px 8px}
+.docker-mode .nav-icon{font-size:14px}
+.docker-mode .page-content{padding:12px}
+.docker-mode .page-heading{display:block;margin-bottom:12px}
+.docker-mode .page-heading h1{font-size:23px}
+.docker-mode .heading-actions{margin:12px 0 0;flex-wrap:wrap;justify-content:flex-start;gap:5px}
+.docker-mode .heading-actions .button{height:33px;padding:0 9px;font-size:10px}
+.docker-mode .metrics,.docker-mode .lb-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.docker-mode .metric{height:85px;padding:10px}
+.docker-mode .metric-value strong{font-size:23px}
+.docker-mode .workspace-grid,.docker-mode .lb-workspace{grid-template-columns:minmax(0,1fr);gap:8px}
+.docker-mode .settings-panel,.docker-mode .preview-panel,.docker-mode .lb-settings,.docker-mode .lb-preview-panel{min-height:0}
+.docker-mode .settings-body,.docker-mode .lb-controls{display:block}
+.docker-mode .setting-section{margin-bottom:18px}
+.docker-mode .pieces-panel{grid-column:auto;min-height:0}
+.docker-mode .pieces-list{display:block;max-height:200px}
+.docker-mode .preview-inner{min-height:280px}
+.docker-mode .lb-preview-scroll{min-height:280px}
+.docker-mode .lb-results-list{grid-template-columns:1fr}

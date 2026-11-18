@@ -190,6 +190,14 @@
     notify('Plano de letra caixa resetado.');
   }
 
+  window.TCutLetterboxBridge = {
+    importSvg,
+    exportSvg() {
+      if (!state.strips.length) throw new Error('Gere as tiras antes de enviar ao CorelDRAW.');
+      return exportedSvg();
+    },
+  };
+
   $('nestingTab').addEventListener('click', () => switchTab('nesting'));
   $('letterboxTab').addEventListener('click', () => switchTab('letterbox'));
   $('lbImportButton').addEventListener('click', () => $('lbFileInput').click());

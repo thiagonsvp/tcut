@@ -593,6 +593,14 @@ async function importText(text, filename) {
   await optimize();
 }
 
+window.TCutNestingBridge = {
+  importSvg: importText,
+  exportSvg() {
+    if (!state.sheets.length) throw new Error('Otimize um plano antes de enviar ao CorelDRAW.');
+    return exportedSvg();
+  },
+};
+
 function download(filename, content, mime) {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
