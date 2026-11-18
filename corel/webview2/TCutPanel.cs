@@ -16,7 +16,7 @@ namespace TCutDocker
     // WPF UserControl hosted by CorelDRAW's wpfhost docker.
     public sealed class TCutPanel : UserControl
     {
-        private const string LocalUrl = "http://127.0.0.1:4173/?docker=1";
+        private const string LocalUrl = "http://127.0.0.1:4173/?docker=1&ledImport=1";
         private static Process ownedServer;
         private static bool exitHookInstalled;
         private readonly TextBlock status;

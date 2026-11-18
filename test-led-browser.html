@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>Teste LED no navegador</title>
+<output id="result">Pendente</output>
+<iframe src="/?docker=1" onload="verify(this.contentWindow)"></iframe>
+<script>
+async function verify(panel) {
+  try {
+    const doc = panel.document;
+    doc.getElementById('ledTab').click();
+    doc.getElementById('ledOffset').value = 8;
+    doc.getElementById('ledChannelWidth').value = 4;
+    const points = '0,0 40,0 40,58 95,58 95,0 135,0 135,150 95,150 95,89 40,89 40,150 0,150';
+    panel.TCutLedBridge.importSvg('<svg xmlns="http://www.w3.org/2000/svg" width="135mm" height="150mm" viewBox="0 0 135 150"><polygon points="'+points+'"/></svg>', 'H.svg');
+    const preview = doc.querySelector('#ledPreviewSvg path');
+    if (!preview || preview.getAttribute('d').split(' L ').length !== 12) throw Error('Prévia do H');
+    let posted;
+    panel.fetch = async (url, options) => {
+      if (url !== '/api/corel/output') throw Error(url);
+      posted = new DOMParser().parseFromString(options.body,'image/svg+xml');
+      return { ok:true };
+    };
+    const command = new Promise(resolve => {
+      panel.chrome.webview = { postMessage: resolve };
+    });
+    doc.querySelector('[data-corel-send="led"]').click();
+    if (await command !== 'TCUT_IMPORT_LETTERBOX') throw Error('Comando do painel legado');
+    if (posted.querySelectorAll('path').length !== 1 || posted.querySelector('path').getAttribute('d') !== preview.getAttribute('d')) throw Error('SVG aplicado difere da prévia');
+    result.dataset.svg = btoa(String.fromCharCode(...new TextEncoder().encode(new XMLSerializer().serializeToString(posted))));
+    result.value = 'PASS';
+  } catch (error) { result.value = String(error); }
+}
+</script>

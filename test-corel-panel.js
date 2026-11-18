@@ -64,6 +64,9 @@ async function main() {
   assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX']);
   await ledSend.listeners.click();
   assert.equal(posts[2].options.body, '<svg id="led"></svg>');
+  assert.equal(messages.pop(), 'TCUT_IMPORT_LETTERBOX', 'painel instalado usa o comando aditivo disponível');
+  context.location.search += '&ledImport=1';
+  await ledSend.listeners.click();
   assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_IMPORT_LED']);
   ids.resetButton.listeners.click();
   assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_IMPORT_LED', 'TCUT_CLEAR_SOURCE']);

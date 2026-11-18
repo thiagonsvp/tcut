@@ -88,7 +88,9 @@
     if (docker && !window.chrome?.webview) { notify('Abra o painel T-Cut dentro do CorelDRAW.', true); return; }
     const ok = await send(button);
     if (ok && docker && window.chrome?.webview)
-      window.chrome.webview.postMessage(button.dataset.corelSend === 'led' ? 'TCUT_IMPORT_LED' : (button.dataset.corelSend === 'letterbox' ? 'TCUT_IMPORT_LETTERBOX' : 'TCUT_APPLY_NESTING'));
+      window.chrome.webview.postMessage(button.dataset.corelSend === 'nesting' ? 'TCUT_APPLY_NESTING'
+        : button.dataset.corelSend === 'led' && new URLSearchParams(location.search).has('ledImport')
+          ? 'TCUT_IMPORT_LED' : 'TCUT_IMPORT_LETTERBOX');
   }));
   window.TCutCorelBridge = {
     receiveCurrent() {

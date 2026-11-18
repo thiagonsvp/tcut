@@ -1,6 +1,28 @@
 const LedGeometry = (() => {
   const round = value => Number(value.toFixed(3));
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const clip = typeof module === 'undefined' ? ClipperLib : require('./clipper.js');
+
+  // Offset the whole filled region, so holes, narrow strokes and intersections
+  // are resolved together. Coordinates use integer micrometres during clipping.
+  function pieceRoutes(contours, config) {
+    const scale = 1000;
+    const rings = contours.map(contour => {
+      const ring = contour.points.map(p => ({ X: Math.round(p.x * scale), Y: Math.round(p.y * scale) }));
+      if (clip.Clipper.Orientation(ring) !== (contour.kind === 'externo')) ring.reverse();
+      return ring;
+    });
+    const offsetter = new clip.ClipperOffset(4);
+    offsetter.AddPaths(rings, clip.JoinType.jtMiter, clip.EndType.etClosedPolygon);
+    const solution = [];
+    const clearance = config.offset + config.channelWidth / 2;
+    offsetter.Execute(solution, (config.rebate ? 1 : -1) * clearance * scale);
+    return solution.map((ring, index) => ({
+      points: ring.map(p => ({ x: p.X / scale, y: p.Y / scale })),
+      kind: clip.Clipper.Orientation(ring) ? 'externo' : 'interno',
+      piece: contours[0].piece, contourIndex: index + 1
+    }));
+  }
 
   function contourFromPoints(input) {
     const points = [];
@@ -36,41 +58,6 @@ const LedGeometry = (() => {
     });
   }
 
-  function normal(from, to, orientation) {
-    const length = Math.hypot(to.x - from.x, to.y - from.y);
-    if (!length) return { x: 0, y: 0 };
-    // In SVG coordinates, the left normal of a positive-area contour points inward.
-    return { x: orientation * -(to.y - from.y) / length, y: orientation * (to.x - from.x) / length };
-  }
-
-  // Positive distance moves toward the material interior; negative distance moves outward.
-  // Intersecting the adjacent parallel offsets keeps the complete line at the requested
-  // clearance from the original contour, including at a sharp corner.
-  function offsetContour(contour, distanceMm) {
-    const { points, signedArea } = contour;
-    const orientation = signedArea >= 0 ? 1 : -1;
-    const result = [];
-    for (let index = 0; index < points.length; index++) {
-      const previous = points[(index - 1 + points.length) % points.length];
-      const current = points[index];
-      const next = points[(index + 1) % points.length];
-      const a = normal(previous, current, orientation);
-      const b = normal(current, next, orientation);
-      let x = a.x + b.x, y = a.y + b.y;
-      const length = Math.hypot(x, y);
-      if (length < .0001) { x = b.x; y = b.y; }
-      else { x /= length; y /= length; }
-      const alignment = Math.max(.0001, Math.abs(x * b.x + y * b.y));
-      const miter = distanceMm / alignment;
-      result.push({ x: round(current.x + x * miter), y: round(current.y + y * miter) });
-    }
-    return contourFromPoints([...result, result[0]]);
-  }
-
-  function ledContour(contour, options) {
-    const toOutside = options.rebate ? contour.kind === 'externo' : contour.kind === 'interno';
-    return offsetContour(contour, toOutside ? -options.offset : options.offset);
-  }
 
   function nearestPointOnSegment(point, a, b) {
     const dx = b.x - a.x, dy = b.y - a.y;
@@ -108,7 +95,45 @@ const LedGeometry = (() => {
     return merged;
   }
 
+  // Both sides of a narrow rectangular inset can be machined in a single pass.
+  function narrowAxis(route, width) {
+    if (route.points.length !== 4) return route;
+    const [a,b,c,d] = route.points;
+    const ab = distance(a,b), bc = distance(b,c);
+    if (Math.min(ab,bc) > width || Math.max(ab,bc) <= width) return route;
+    const dot = (b.x-a.x)*(c.x-b.x) + (b.y-a.y)*(c.y-b.y);
+    if (Math.abs(dot) > 0.001*ab*bc || Math.abs(ab-distance(c,d)) > .002 || Math.abs(bc-distance(d,a)) > .002) return route;
+    const mid = (u,v) => ({ x: round((u.x+v.x)/2), y: round((u.y+v.y)/2) });
+    return { ...route, open: true, points: ab < bc ? [mid(a,b),mid(c,d)] : [mid(b,c),mid(d,a)] };
+  }
+
+  function channelsForPiece(contours, config) {
+    const routes = pieceRoutes(contours, config);
+    if (routes.length < 2) return routes.map(route => narrowAxis(route, config.channelWidth));
+    const merged = mergeClosePaths(routes, config.channelWidth);
+    // A midpoint between two rings can lie in a hole or in a thin wall.
+    // Accept a merge only if every new segment stays clear of every original edge.
+    const limit = config.offset + config.channelWidth/2 - .002;
+    for (const route of merged) for (const segment of visibleSegments(route)) {
+      const points = segment.points;
+      for (let i = segment.closed ? 0 : 1; i < points.length; i++) {
+        const a = points[(i+points.length-1)%points.length], b = points[i];
+        for (const ring of contours) for (let j=0; j<ring.points.length; j++) {
+          const c=ring.points[j], d=ring.points[(j+1)%ring.points.length];
+          if (Math.min(a.x,b.x)-Math.max(c.x,d.x)>=limit || Math.min(c.x,d.x)-Math.max(a.x,b.x)>=limit ||
+              Math.min(a.y,b.y)-Math.max(c.y,d.y)>=limit || Math.min(c.y,d.y)-Math.max(a.y,b.y)>=limit) continue;
+          const side = (u,v,w) => (v.x-u.x)*(w.y-u.y)-(v.y-u.y)*(w.x-u.x);
+          if ((side(a,b,c)*side(a,b,d)<0 && side(c,d,a)*side(c,d,b)<0) ||
+              Math.min(nearestPointOnSegment(a,c,d).distance, nearestPointOnSegment(b,c,d).distance,
+                       nearestPointOnSegment(c,a,b).distance, nearestPointOnSegment(d,a,b).distance)<limit) return routes;
+        }
+      }
+    }
+    return merged.filter(route => visibleSegments(route).length);
+  }
+
   function visibleSegments(path) {
+    if (path.open) return [{ points: path.points, closed: false }];
     if (!path.suppressed?.some(Boolean)) return path.points.length > 2 ? [{ points: path.points, closed: true }] : [];
     const result = [], total = path.points.length;
     let start = path.suppressed.findIndex(Boolean);
@@ -129,7 +154,7 @@ const LedGeometry = (() => {
     return visibleSegments(path).reduce((total, segment) => total + segment.points.reduce((sum, point, index) => sum + (index ? distance(point, segment.points[index - 1]) : 0), segment.closed ? distance(segment.points[0], segment.points.at(-1)) : 0), 0);
   }
 
-  return { contourFromPoints, classifyContours, offsetContour, ledContour, mergeClosePaths, visibleSegments, visibleLength };
+  return { contourFromPoints, classifyContours, mergeClosePaths, visibleSegments, visibleLength, pieceRoutes, channelsForPiece };
 })();
 
 if (typeof module !== 'undefined') module.exports = LedGeometry;

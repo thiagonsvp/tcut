@@ -37,6 +37,14 @@
         const length = shape.getTotalLength();
         if (!Number.isFinite(length) || length <= 0) continue;
         const matrix = base.multiply(shape.getCTM());
+        if (shape.localName === 'polygon') {
+          const vertices = Array.from(shape.points, p => p.matrixTransform(matrix));
+          if (vertices.length >= 3) {
+            const contour = LedGeometry.contourFromPoints([...vertices, vertices[0]]);
+            if (contour) contours.push(contour);
+          }
+          continue;
+        }
         const scale = Math.max(Math.hypot(matrix.a, matrix.b), Math.hypot(matrix.c, matrix.d));
         const samples = Math.min(100000, Math.max(24, Math.ceil(length * scale)));
         const maxJump = Math.max(3, length * scale / samples * 4);
@@ -70,15 +78,17 @@
     let config;
     try { config = readConfig(); } catch (error) { notify(error.message, true); return; }
     state.config = config;
-    const paths = state.contours.map(contour => {
-      const path = LedGeometry.ledContour(contour, config);
-      if (!path) throw new Error(`Não foi possível deslocar o contorno ${contour.contourIndex}. Reduza a distância.`);
-      return { ...path, piece: contour.piece, contourIndex: contour.contourIndex, kind: contour.kind };
+    let omitted = 0;
+    state.paths = state.pieces.flatMap(piece => {
+      const rings = state.contours.filter(contour => contour.piece === piece);
+      const routes = LedGeometry.channelsForPiece(rings, config);
+      if (!routes.length) omitted++;
+      return routes;
     });
-    state.paths = LedGeometry.mergeClosePaths(paths, Math.max(config.channelWidth, 2));
     render();
     $('ledMessage').textContent = `${state.paths.length} percurso(s) gerado(s) em modo ${config.rebate ? 'traseiro' : 'frontal'}.`;
-    notify('Canal LED gerado. Confira a prévia antes de usinar.');
+    if (omitted) $('ledMessage').textContent += ` ${omitted} peça(s) sem espaço para a folga e a largura escolhidas.`;
+    notify($('ledMessage').textContent, !state.paths.length);
   }
 
   function pathD(points, closed = true) { return `M ${points.map(point => `${round(point.x)} ${round(point.y)}`).join(' L ')}${closed ? ' Z' : ''}`; }
@@ -127,13 +137,15 @@
   function exportedSvg() {
     const groups = state.paths.map((path, index) => {
       const paths = LedGeometry.visibleSegments(path).map(segment => `<path d="${pathD(segment.points, segment.closed)}"/>`).join('');
-      return paths ? `<g id="led_${String(index + 1).padStart(3, '0')}" data-peca="${escapeXml(path.piece.name)}" data-contorno="${path.contourIndex}" data-modo="${state.config.rebate ? 'traseiro' : 'frontal'}"><g data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linecap="round">${paths}</g></g>` : '';
+      return paths ? `<g id="led_${String(index + 1).padStart(3, '0')}" data-peca="${escapeXml(path.piece.name)}" data-contorno="${path.contourIndex}" data-modo="${state.config.rebate ? 'traseiro' : 'frontal'}"><g data-operation="USINAGEM_LED" fill="none" stroke="#E0A600" stroke-width="${round(state.config.channelWidth)}" stroke-linejoin="round" stroke-linecap="round">${paths}</g></g>` : '';
     }).join('');
-    const bounds = state.paths.flatMap(path => path.points);
-    const minX = Math.min(...bounds.map(point => point.x)) - state.config.channelWidth;
-    const minY = Math.min(...bounds.map(point => point.y)) - state.config.channelWidth;
-    const maxX = Math.max(...bounds.map(point => point.x)) + state.config.channelWidth;
-    const maxY = Math.max(...bounds.map(point => point.y)) + state.config.channelWidth;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const path of state.paths) for (const point of path.points) {
+      minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+    }
+    minX -= state.config.channelWidth; minY -= state.config.channelWidth;
+    maxX += state.config.channelWidth; maxY += state.config.channelWidth;
     return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(maxX - minX)}mm" height="${round(maxY - minY)}mm" viewBox="${round(minX)} ${round(minY)} ${round(maxX - minX)} ${round(maxY - minY)}" data-tcut="led" data-led-mode="${state.config.rebate ? 'traseiro' : 'frontal'}" data-channel-width-mm="${round(state.config.channelWidth)}"><title>T-Cut · canal LED</title>${groups}</svg>`;
   }
 
@@ -148,6 +160,11 @@
   $('ledImportButton').addEventListener('click', () => $('ledFileInput').click());
   $('ledFileInput').addEventListener('change', async event => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { importSvg(await file.text(), file.name); } catch (error) { notify(error.message, true); } });
   $('ledGenerateButton').addEventListener('click', generate); $('ledResetButton').addEventListener('click', reset); $('ledExportSvg').addEventListener('click', () => download('t-cut-canal-led.svg', exportedSvg(), 'image/svg+xml'));
-  for (const id of fieldIds) $(id).addEventListener('change', () => { if (state.contours.length) $('ledMessage').textContent = 'Parâmetros alterados. Clique em Gerar canal LED para atualizar.'; });
+  for (const id of fieldIds) $(id).addEventListener('change', () => {
+    if (!state.contours.length) return;
+    state.paths = [];
+    render();
+    $('ledMessage').textContent = 'Parâmetros alterados. Clique em Gerar canal LED para atualizar.';
+  });
   render();
 })();

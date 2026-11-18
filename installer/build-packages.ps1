@@ -10,7 +10,7 @@ $manifest = Get-Content -LiteralPath (Join-Path $project 'package.json') -Raw | 
 $version = [string]$manifest.version
 $output = Join-Path $PSScriptRoot 'packages'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
-$appFiles = @('app.js', 'corel-bridge.js', 'index.html', 'irregular.js', 'letterbox.js', 'letterbox-geometry.js', 'led.js', 'led-geometry.js', 'server.js', 'style.css', 'README.md', 'pvc 15mm 2.svg')
+$appFiles = @('app.js', 'corel-bridge.js', 'index.html', 'irregular.js', 'letterbox.js', 'letterbox-geometry.js', 'clipper.js', 'led.js', 'led-geometry.js', 'server.js', 'style.css', 'README.md', 'pvc 15mm 2.svg')
 $installerFiles = @('instalar-tcut.ps1', 'desinstalar-tcut.ps1')
 $webviewFiles = @('build.ps1', 'TCutPanel.cs', 'Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.Wpf.dll', 'WebView2Loader.dll', 'WEBVIEW2-LICENSE.txt')
 $dockerFiles = @('AppUI.xslt', 'UserUI.xslt', 'Coreldrw.addon')

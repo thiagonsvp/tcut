@@ -81,7 +81,7 @@
         <div class="lb-workspace">
           <section class="panel lb-settings"><div class="panel-head"><div><div class="section-kicker">01 / CONFIGURAÇÃO</div><h2>Canal de LED</h2></div><span class="panel-head-icon">⚙</span></div><div class="lb-controls">
             <div class="lb-file"><strong id="ledFileName">Nenhum arquivo</strong><small id="ledFileDetail">Importe um SVG com contornos fechados.</small></div>
-            <div class="lb-field-grid"><label>Distância do contorno <span class="input-wrap"><input id="ledOffset" type="number" min="0.5" step="0.5" value="20" /><span>mm</span></span></label><label>Largura do canal <span class="input-wrap"><input id="ledChannelWidth" type="number" min="0.5" step="0.5" value="8" /><span>mm</span></span></label></div>
+<div class="lb-field-grid"><label>Folga da borda do canal até o contorno <span class="input-wrap"><input id="ledOffset" type="number" min="0.5" step="0.5" value="20" /><span>mm</span></span></label><label>Largura do canal <span class="input-wrap"><input id="ledChannelWidth" type="number" min="0.5" step="0.5" value="8" /><span>mm</span></span></label></div>
             <label class="toggle-row" for="ledRebate"><span><strong>Rebater para trás</strong><small>Cria o percurso externo para LED atrás da letra</small></span><input id="ledRebate" type="checkbox" /><span class="switch"></span></label>
             <p class="lb-help">Na frente, o percurso fica dentro da peça. Com rebater, o contorno é deslocado para fora, formando o canal para iluminação traseira.</p>
             <button id="ledGenerateButton" class="button optimize" type="button"><span>✦</span> Gerar canal LED <span class="arrow">→</span></button><div id="ledMessage" class="settings-message">Importe um SVG para começar.</div>
@@ -99,6 +99,7 @@
   <script src="app.js"></script>
   <script src="letterbox-geometry.js"></script>
   <script src="letterbox.js"></script>
+  <script src="clipper.js"></script>
   <script src="led-geometry.js"></script>
   <script src="led.js"></script>
   <script src="corel-bridge.js"></script>
