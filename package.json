@@ -1,0 +1,10 @@
+{
+  "name": "t-cut-nesting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Planejador de nesting para corte CNC",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-nesting.js && node test-irregular.js && node test-export.js && node test-dxf.js"
+  }
+}

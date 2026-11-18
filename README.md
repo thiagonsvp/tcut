@@ -1,0 +1,45 @@
+# T-Cut Nesting Studio
+
+Aplicação local para organizar peças vetoriais em chapas de corte CNC.
+
+## Abrir
+
+No PowerShell, dentro desta pasta:
+
+```powershell
+& 'C:\Program Files\nodejs\node.exe' server.js
+```
+
+Abra **http://localhost:4173** no navegador. Não há instalação de pacotes nem envio dos arquivos para a internet.
+
+## Fluxo
+
+1. No CorelDRAW, converta textos em curvas, agrupe os contornos de corte e de usinagem de cada letra e exporte o desenho em SVG com dimensões físicas em milímetros. Cada grupo vira uma peça única; objetos sem grupo entram separadamente.
+2. Importe o SVG, informe as medidas da chapa, a folga mínima e a margem. Ative o sentido do veio para permitir somente 0° e 180°. Sem veio, escolha a precisão da busca angular (15°, 5° ou 1°).
+3. Clique em **Otimizar contornos**. O programa faz um encaixe inicial rápido e procura espaços livres usando a silhueta das peças, inclusive concavidades e vazados. Navegue entre as chapas com as setas ao lado do número da chapa.
+4. Exporte a chapa selecionada em SVG ou DXF para o CAM. O PDF é produzido pela opção **Salvar como PDF** na janela de impressão do navegador.
+
+O arquivo `pvc 15mm 2.svg`, com cinco letras agrupadas, é carregado automaticamente como exemplo.
+
+## Limites importantes
+
+- O encaixe por contornos usa uma máscara de 1 mm e acrescenta uma pequena reserva à folga. É uma busca heurística: melhora o aproveitamento, mas não garante o ótimo matemático. Confira as distâncias finais no CAM antes do corte.
+- O aproveitamento é uma estimativa da área dos contornos em relação à área total das chapas utilizadas.
+- O DXF contém polilinhas amostradas a aproximadamente 0,25 mm e um contorno da chapa na camada `CHAPA`; os contornos rosa e verdes ficam, respectivamente, nas camadas `CORTE` e `USINAGEM`. Confira no CAM as curvas, a escala e quais camadas serão cortadas.
+- O SVG exportado contém apenas os contornos das peças, com unidades em milímetros. A folga e a margem são usadas no posicionamento e não viram trajetórias de ferramenta.
+- CDR é um formato proprietário. Para obter um CDR, abra o SVG exportado no CorelDRAW e use **Salvar como → CDR**.
+- O PDF é uma conferência visual. A geração das trajetórias, compensação da fresa e sequência de corte devem ser feitas no software CAM.
+
+## Verificar o algoritmo
+
+```powershell
+& 'C:\Program Files\nodejs\node.exe' test-nesting.js
+```
+
+O teste executa 400 cenários determinísticos do encaixe inicial, além de verificar colisão por máscara, encaixe em concavidade, rotação e margens:
+
+```powershell
+& 'C:\Program Files\nodejs\node.exe' test-irregular.js
+& 'C:\Program Files\nodejs\node.exe' test-export.js
+& 'C:\Program Files\nodejs\node.exe' test-dxf.js
+```
