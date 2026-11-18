@@ -268,11 +268,13 @@ namespace TCutDocker
             try {
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-output.svg");
                 if (!File.Exists(file)) throw new FileNotFoundException("SVG não encontrado");
-                if (replaceSource && (sourceDocument == null || sourceShapes == null || sourceShapes.Count == 0))
-                    throw new InvalidOperationException("Envie novamente a seleção do Corel antes de aplicar o plano.");
+                if ((replaceSource || ledImport) && (sourceDocument == null || sourceShapes == null || sourceShapes.Count == 0))
+                    throw new InvalidOperationException("Envie novamente a seleção do Corel antes de aplicar.");
                 if (replaceSource && !sourceDocument.Active)
                     throw new InvalidOperationException("Ative o documento original antes de aplicar o plano.");
-                Cdr.Document doc = replaceSource ? sourceDocument : CorelApp().ActiveDocument;
+                // The LED result replaces the selected originals: each imported
+                // group holds the original piece and its channel.
+                Cdr.Document doc = (replaceSource || ledImport) ? sourceDocument : CorelApp().ActiveDocument;
                 if (doc == null) throw new InvalidOperationException("Abra um documento no CorelDRAW");
                 bool imported = false;
                 bool completed = false;
@@ -288,13 +290,13 @@ namespace TCutDocker
                     if (layer.Shapes.Count <= beforeCount)
                         throw new InvalidOperationException("O SVG não criou objetos no CorelDRAW.");
                     if (ledImport) ledNote = ArrangeLed(doc, layer, beforeIds, File.ReadAllText(file));
-                    if (replaceSource) sourceShapes.Delete();
+                    if (replaceSource || ledImport) sourceShapes.Delete();
                     completed = true;
                 } finally {
                     doc.EndCommandGroup();
                     if (imported && !completed) doc.Undo();
                 }
-                if (replaceSource) {
+                if (replaceSource || ledImport) {
                     sourceDocument = null;
                     sourceShapes = null;
                     sourceBox = null;
@@ -303,7 +305,7 @@ namespace TCutDocker
                 SetStatus(replaceSource
                     ? "Peças reorganizadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
                     : (ledImport
-                        ? (ledNote ?? "Canal LED aplicado sobre as peças de origem, agrupado por peça. Ctrl+Z desfaz tudo.")
+                        ? (ledNote ?? "Peças substituídas pelo resultado do T-Cut: cada grupo tem a peça e o canal LED. Ctrl+Z desfaz tudo.")
                         : "Tiras importadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."));
             } catch (Exception ex) {
                 Log("Falha ao importar: " + ex);
@@ -327,7 +329,7 @@ namespace TCutDocker
         {
             Cdr.ShapeRange added = NewShapes(layer, beforeIds);
             Log("LED: " + added.Count + " objeto(s) novo(s) na camada.");
-            if (added.Count == 0) return "Canal LED importado, mas os objetos novos não foram identificados.";
+            if (added.Count == 0) throw new InvalidOperationException("Os objetos importados não foram identificados.");
             int expected;
             if (!Int32.TryParse(SvgAttribute(svg, "data-pieces"), NumberStyles.Integer, CultureInfo.InvariantCulture, out expected)) expected = 0;
             Log("LED: peças esperadas " + expected + ", ref " + SvgAttribute(svg, "data-ref-bbox") + ", canal " + SvgAttribute(svg, "data-led-bbox"));
@@ -345,36 +347,78 @@ namespace TCutDocker
                 Log("LED: grupo envoltório desfeito, agora " + added.Count + " objeto(s).");
             }
             if (added.Count == 0)
-                return "Canal LED importado, mas os objetos novos se perderam ao desagrupar; nada foi alinhado.";
+                throw new InvalidOperationException("Os objetos importados se perderam ao desagrupar.");
 
-            double[] reference = SvgBox(svg, "data-ref-bbox"), led = SvgBox(svg, "data-led-bbox");
-            if (reference == null || led == null || reference[2] <= 0 || reference[3] <= 0)
-                return "Canal LED importado sem dados de posição. Gere o canal novamente.";
+            double[] reference = SvgBox(svg, "data-ref-bbox");
+            double[] content = SvgBox(svg, "data-content-bbox") ?? SvgBox(svg, "data-led-bbox");
+            if (reference == null || content == null || reference[2] <= 0 || reference[3] <= 0)
+                throw new InvalidOperationException("O SVG do LED não tem dados de posição. Gere o canal novamente.");
             if (sourceBox == null || sourceDocument == null)
-                return "Canal LED importado, mas a seleção de origem não está disponível para alinhar. Clique em Usar seleção do Corel e aplique de novo.";
+                throw new InvalidOperationException("A seleção de origem não está disponível. Clique em Usar seleção do Corel e aplique de novo.");
             if (!ReferenceEquals(sourceDocument, doc) && sourceDocument.FullFileName != doc.FullFileName)
-                return "Canal LED importado em outro documento; o alinhamento exige o documento da seleção de origem.";
+                throw new InvalidOperationException("Aplique o LED no mesmo documento da seleção de origem.");
             double sx = sourceBox[0], sy = sourceBox[1], sw = sourceBox[2], sh = sourceBox[3];
             // Prefer the pieces' current position, in case they were moved after sending.
             try {
                 if (sourceShapes != null && sourceShapes.Count > 0)
                     sourceShapes.GetBoundingBox(out sx, out sy, out sw, out sh, false);
             } catch { sx = sourceBox[0]; sy = sourceBox[1]; sw = sourceBox[2]; sh = sourceBox[3]; }
-            if (sw <= 0 || sh <= 0) return "Canal LED importado, mas a seleção de origem não tem tamanho válido.";
+            if (sw <= 0 || sh <= 0) throw new InvalidOperationException("A seleção de origem não tem tamanho válido.");
             double ix, iy, iw, ih;
             added.GetBoundingBox(out ix, out iy, out iw, out ih, false);
             // SVG Y grows downwards; Corel Y grows upwards and GetBoundingBox
             // returns the lower-left corner. The ratios also convert mm to the
             // document unit.
             double kx = sw / reference[2], ky = sh / reference[3];
-            double left = sx + (led[0] - reference[0]) * kx;
-            double top = sy + sh - (led[1] - reference[1]) * ky;
-            added.Move(left - ix, top - (iy + ih));
-            double ax, ay, aw, ah;
-            added.GetBoundingBox(out ax, out ay, out aw, out ah, false);
+            double left = sx + (content[0] - reference[0]) * kx;
+            double top = sy + sh - (content[1] - reference[1]) * ky;
             Log("LED: origem " + Format(new[] { sx, sy, sw, sh }) + ", importado " + Format(new[] { ix, iy, iw, ih })
-                + ", destino esquerda/topo " + Format(new[] { left, top }) + ", final " + Format(new[] { ax, ay, aw, ah }));
+                + ", destino esquerda/topo " + Format(new[] { left, top }));
+            MoveVerified(doc, added, left, top, 1e-4 * Math.Max(sw, sh) + 1e-6);
             return null;
+        }
+
+        private static double[] GeometryBox(Cdr.ShapeRange range)
+        {
+            double x, y, w, h;
+            range.GetBoundingBox(out x, out y, out w, out h, false);
+            return new[] { x, y, w, h };
+        }
+
+        // CorelDRAW has ignored ShapeRange.Move for freshly imported shapes, so
+        // try several ways to move them and check the result after each one.
+        private void MoveVerified(Cdr.Document doc, Cdr.ShapeRange added, double left, double top, double tolerance)
+        {
+            var attempts = new KeyValuePair<string, Action<double, double>>[] {
+                new KeyValuePair<string, Action<double, double>>("ShapeRange.Move", (dx, dy) => added.Move(dx, dy)),
+                new KeyValuePair<string, Action<double, double>>("Shape.Move", (dx, dy) => {
+                    for (int i = 1; i <= added.Count; i++) added[i].Move(dx, dy);
+                }),
+                new KeyValuePair<string, Action<double, double>>("ShapeRange.SetPositionEx", (dx, dy) =>
+                    added.SetPositionEx(Cdr.cdrReferencePoint.cdrTopLeft, added.LeftX + dx, added.TopY + dy)),
+                new KeyValuePair<string, Action<double, double>>("Shape.LeftX/TopY", (dx, dy) => {
+                    for (int i = 1; i <= added.Count; i++) {
+                        Cdr.Shape shape = added[i];
+                        shape.LeftX = shape.LeftX + dx;
+                        shape.TopY = shape.TopY + dy;
+                    }
+                }),
+                new KeyValuePair<string, Action<double, double>>("Selection.Move", (dx, dy) => {
+                    added.CreateSelection();
+                    doc.Selection().Move(dx, dy);
+                }),
+            };
+            foreach (var attempt in attempts) {
+                double[] box = GeometryBox(added);
+                double dx = left - box[0], dy = top - (box[1] + box[3]);
+                if (Math.Abs(dx) <= tolerance && Math.Abs(dy) <= tolerance) return;
+                try { attempt.Value(dx, dy); }
+                catch (Exception ex) { Log("LED: " + attempt.Key + " falhou: " + ex.Message); continue; }
+                double[] after = GeometryBox(added);
+                Log("LED: " + attempt.Key + " deslocamento " + Format(new[] { dx, dy }) + ", agora " + Format(after));
+                if (Math.Abs(left - after[0]) <= tolerance && Math.Abs(top - (after[1] + after[3])) <= tolerance) return;
+            }
+            throw new InvalidOperationException("O CorelDRAW não moveu o canal LED para a posição das peças. Nada foi alterado.");
         }
 
         private static string Format(double[] values)

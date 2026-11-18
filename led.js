@@ -141,9 +141,10 @@
   // One group per source piece. The panel uses data-ref-bbox (the selected
   // pieces, in this SVG's millimetre frame) and data-led-bbox (the channel
   // geometry, without stroke) to place the import exactly over the originals.
-  // includeSource adds each original piece to its group (file download); the
-  // Corel import leaves it out because the originals are already in the drawing.
-  function exportedSvg(includeSource = false) {
+  // includeSource adds each original piece to its group, so each group holds
+  // the piece and its channel. "Aplicar no Corel" uses it too: the panel
+  // replaces the selected originals with this file.
+  function exportedSvg(includeSource = false, forCorel = false) {
     const mode = state.config.rebate ? 'traseiro' : 'frontal';
     const led = box(), ref = box();
     for (const piece of state.pieces) {
@@ -170,7 +171,12 @@
       frame.minX = Math.min(frame.minX, ref.minX - 1); frame.minY = Math.min(frame.minY, ref.minY - 1);
       frame.maxX = Math.max(frame.maxX, ref.maxX + 1); frame.maxY = Math.max(frame.maxY, ref.maxY + 1);
     }
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(frame.maxX - frame.minX)}mm" height="${round(frame.maxY - frame.minY)}mm" viewBox="${boxAttr(frame)}" data-tcut="led" data-led-mode="${mode}" data-channel-width-mm="${round(state.config.channelWidth)}" data-pieces="${pieceCount}" data-ref-bbox="${boxAttr(ref)}" data-led-bbox="${boxAttr(led)}"><title>T-Cut · canal LED</title>${groups}</svg>`;
+    // data-content-bbox: geometry of everything in the file, which is what
+    // CorelDRAW measures after importing it.
+    const content = includeSource
+      ? { minX: Math.min(led.minX, ref.minX), minY: Math.min(led.minY, ref.minY), maxX: Math.max(led.maxX, ref.maxX), maxY: Math.max(led.maxY, ref.maxY) }
+      : led;
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(frame.maxX - frame.minX)}mm" height="${round(frame.maxY - frame.minY)}mm" viewBox="${boxAttr(frame)}" data-tcut="led" data-led-mode="${mode}" data-channel-width-mm="${round(state.config.channelWidth)}" data-pieces="${pieceCount}" data-ref-bbox="${boxAttr(ref)}" data-led-bbox="${boxAttr(led)}" data-content-bbox="${boxAttr(content)}">${forCorel ? '' : '<title>T-Cut · canal LED</title>'}${groups}</svg>`;
   }
 
   function reset() {
@@ -179,7 +185,7 @@
     $('ledMessage').textContent = 'Importe um SVG para começar.'; render(); notify('Plano LED resetado.');
   }
 
-  window.TCutLedBridge = { importSvg, exportSvg() { if (!state.paths.length) throw new Error('Gere o canal LED antes de enviar ao CorelDRAW.'); return exportedSvg(); } };
+  window.TCutLedBridge = { importSvg, exportSvg() { if (!state.paths.length) throw new Error('Gere o canal LED antes de enviar ao CorelDRAW.'); return exportedSvg(true, true); } };
   $('ledTab').addEventListener('click', () => switchTab('led'));
   $('ledImportButton').addEventListener('click', () => $('ledFileInput').click());
   $('ledFileInput').addEventListener('change', async event => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; try { importSvg(await file.text(), file.name); } catch (error) { notify(error.message, true); } });
