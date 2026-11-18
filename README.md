@@ -29,9 +29,12 @@ Para instalar o painel, execute o PowerShell como administrador na pasta do proj
 & '.\corel\instalar-painel.ps1'
 ```
 
-Reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. No desenho, selecione as peças ou letras. Na aba desejada do painel, clique em **Usar seleção do Corel**; o programa lê a seleção e gera o plano de corte ou as tiras de letra caixa. Ajuste os parâmetros, confira a prévia e clique em **Aplicar no Corel** para adicionar o resultado à camada ativa do documento. Você não precisa escolher um arquivo nem acionar importação ou exportação manual. A troca interna usa SVG temporário para preservar os vetores e os grupos. A primeira abertura pode levar alguns segundos enquanto o servidor local e o WebView2 iniciam. A página abre vazia após uma atualização e nenhum desenho é recebido sem o clique no comando.
+Reinicie o CorelDRAW e abra **Janela > Janelas de encaixe > T-Cut**. No desenho, selecione as peças ou letras. Na aba desejada do painel, clique em **Usar seleção do Corel**; o programa lê a seleção e gera o plano de corte ou as tiras de letra caixa. Ajuste os parâmetros, confira a prévia e clique em **Aplicar no Corel**. Você não precisa escolher um arquivo nem acionar importação ou exportação manual. A troca interna usa SVG temporário para preservar os vetores e os grupos. A primeira abertura pode levar alguns segundos enquanto o servidor local e o WebView2 iniciam. A página abre vazia após uma atualização e nenhum desenho é recebido sem o clique no comando.
 
 O instalador grava os arquivos do painel em `C:\Program Files\Corel\CorelDRAW Graphics Suite\26\Programs64\Addons\TCutDocker` e salva o caminho desta pasta do projeto em `project-path.txt`. Se mover o projeto, execute o instalador novamente. O código-fonte do painel está em `corel/webview2/TCutPanel.cs`; `corel/webview2/build.ps1` recompila a DLL.
+
+Na aba **Plano de corte**, **Aplicar no Corel** substitui somente as peças usadas na seleção por um novo conjunto de vetores organizados. Se o plano tiver várias chapas, elas entram lado a lado, com um espaço entre elas. A operação pode ser desfeita com um único **Ctrl+Z**. Na aba **Letra caixa**, as tiras são acrescentadas e as letras originais permanecem no documento.
+
 Para retirar o painel, execute `& '.\corel\remover-painel.ps1'` em um PowerShell como administrador e reinicie o CorelDRAW.
 
 Os dois scripts em [corel](corel) continuam disponíveis como alternativa na janela **Scripts** do CorelDRAW. A interface de planejamento também pode ser aberta em `http://localhost:4173`.

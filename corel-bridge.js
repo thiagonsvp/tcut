@@ -23,8 +23,12 @@
     };
     $('emptyState').querySelector('p').textContent = 'Selecione as peças no CorelDRAW e clique em Usar seleção do Corel.';
     showSelectionHints();
-    $('resetButton').addEventListener('click', showSelectionHints);
-    $('lbResetButton').addEventListener('click', showSelectionHints);
+    const clearSource = () => {
+      showSelectionHints();
+      window.chrome?.webview?.postMessage('TCUT_CLEAR_SOURCE');
+    };
+    $('resetButton').addEventListener('click', clearSource);
+    $('lbResetButton').addEventListener('click', clearSource);
   }
 
   async function receive(button) {
@@ -76,7 +80,8 @@
   document.querySelectorAll('[data-corel-send]').forEach(button => button.addEventListener('click', async () => {
     if (docker && !window.chrome?.webview) { notify('Abra o painel T-Cut dentro do CorelDRAW.', true); return; }
     const ok = await send(button);
-    if (ok && docker && window.chrome?.webview) window.chrome.webview.postMessage('TCUT_IMPORT');
+    if (ok && docker && window.chrome?.webview)
+      window.chrome.webview.postMessage(button.dataset.corelSend === 'letterbox' ? 'TCUT_IMPORT_LETTERBOX' : 'TCUT_APPLY_NESTING');
   }));
   window.TCutCorelBridge = {
     receiveCurrent() {

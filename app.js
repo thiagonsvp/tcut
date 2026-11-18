@@ -597,7 +597,10 @@ window.TCutNestingBridge = {
   importSvg: importText,
   exportSvg() {
     if (!state.sheets.length) throw new Error('Otimize um plano antes de enviar ao CorelDRAW.');
-    return exportedSvg();
+    const placed = state.sheets.reduce((count, sheet) => count + sheet.placements.length, 0);
+    if (state.unplaced.length || !state.pieces.length || placed !== state.pieces.length)
+      throw new Error('Existem peças sem posição. Ajuste o plano antes de aplicar no CorelDRAW.');
+    return exportedSvg(true);
   },
 };
 
@@ -609,8 +612,16 @@ function download(filename, content, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-function exportedSvg() {
+function exportedSvg(allSheets = false) {
   const sheet = state.sheets[state.currentSheet], c = state.settings;
+  if (allSheets) {
+    const gap = Math.max(50, c.margin * 2);
+    const width = c.width * state.sheets.length + gap * (state.sheets.length - 1);
+    const groups = state.sheets.map((item, index) =>
+      `<g id="chapa_${index + 1}" transform="translate(${round(index * (c.width + gap))} 0)">${sheetContent(item, c, true)}</g>`
+    ).join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${round(width)}mm" height="${c.height}mm" viewBox="0 0 ${round(width)} ${c.height}">\n<title>T-Cut - Plano completo</title>\n${groups}\n</svg>`;
+  }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="${SVG_NS}" width="${c.width}mm" height="${c.height}mm" viewBox="0 0 ${c.width} ${c.height}">\n<title>T-Cut - Chapa ${state.currentSheet + 1}</title>\n${sheetContent(sheet, c, true)}\n</svg>`;
 }
 

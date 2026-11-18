@@ -22,6 +22,8 @@ namespace TCutDocker
         private readonly WebView2 web;
         private readonly DispatcherTimer readyTimer;
         private readonly Cdr.Application corelApplication;
+        private Cdr.Document sourceDocument;
+        private Cdr.ShapeRange sourceShapes;
         private bool messageHookInstalled;
         private int readyAttempts;
 
@@ -113,6 +115,8 @@ namespace TCutDocker
 
         private void Reload(object sender, RoutedEventArgs e)
         {
+            sourceDocument = null;
+            sourceShapes = null;
             if (IsServerReady()) {
                 web.Reload();
                 SetStatus("Área de trabalho recarregada.");
@@ -185,9 +189,14 @@ namespace TCutDocker
                     SetStatus("Selecione as letras ou peças no CorelDRAW.");
                     return;
                 }
+                Cdr.ShapeRange selected = doc.SelectionRange;
+                Cdr.ShapeRange captured = CorelApp().CreateShapeRange();
+                for (int i = 1; i <= selected.Count; i++) captured.Add(selected[i]);
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-input.svg");
                 if (File.Exists(file)) File.Delete(file);
                 doc.Export(file, Cdr.cdrFilter.cdrSVG, Cdr.cdrExportRange.cdrSelection);
+                sourceDocument = doc;
+                sourceShapes = captured;
                 SetStatus("Seleção enviada. Preparando o plano no T-Cut...");
                 web.CoreWebView2.ExecuteScriptAsync(
                     "if(window.TCutCorelBridge){window.TCutCorelBridge.receiveCurrent()}" +
@@ -225,14 +234,45 @@ namespace TCutDocker
                 SendSelection();
                 return;
             }
-            if (message != "TCUT_IMPORT") return;
+            if (message == "TCUT_CLEAR_SOURCE") {
+                sourceDocument = null;
+                sourceShapes = null;
+                return;
+            }
+            bool replaceSource = message == "TCUT_APPLY_NESTING";
+            if (!replaceSource && message != "TCUT_IMPORT_LETTERBOX") return;
             try {
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-output.svg");
                 if (!File.Exists(file)) throw new FileNotFoundException("SVG não encontrado");
-                Cdr.Document doc = CorelApp().ActiveDocument;
+                if (replaceSource && (sourceDocument == null || sourceShapes == null || sourceShapes.Count == 0))
+                    throw new InvalidOperationException("Envie novamente a seleção do Corel antes de aplicar o plano.");
+                if (replaceSource && !sourceDocument.Active)
+                    throw new InvalidOperationException("Ative o documento original antes de aplicar o plano.");
+                Cdr.Document doc = replaceSource ? sourceDocument : CorelApp().ActiveDocument;
                 if (doc == null) throw new InvalidOperationException("Abra um documento no CorelDRAW");
-                doc.ActiveLayer.Import(file, Cdr.cdrFilter.cdrSVG);
-                SetStatus("Resultado importado. Confira a escala, as cores e os contornos.");
+                bool imported = false;
+                bool completed = false;
+                doc.BeginCommandGroup(replaceSource ? "T-Cut - reorganizar peças" : "T-Cut - tiras de letra caixa");
+                try {
+                    Cdr.Layer layer = doc.ActiveLayer;
+                    int beforeCount = layer.Shapes.Count;
+                    layer.Import(file, Cdr.cdrFilter.cdrSVG);
+                    imported = true;
+                    if (layer.Shapes.Count <= beforeCount)
+                        throw new InvalidOperationException("O SVG não criou objetos no CorelDRAW.");
+                    if (replaceSource) sourceShapes.Delete();
+                    completed = true;
+                } finally {
+                    doc.EndCommandGroup();
+                    if (imported && !completed) doc.Undo();
+                }
+                if (replaceSource) {
+                    sourceDocument = null;
+                    sourceShapes = null;
+                }
+                SetStatus(replaceSource
+                    ? "Peças reorganizadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo."
+                    : "Tiras importadas. Confira a escala, as cores e os contornos. Ctrl+Z desfaz tudo.");
             } catch (Exception ex) { SetStatus("Falha ao importar: " + ex.Message); }
         }
     }

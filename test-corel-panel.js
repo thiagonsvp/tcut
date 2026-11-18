@@ -16,19 +16,20 @@ function element(dataset = {}) {
 async function main() {
   const receive = element();
   const send = element({ corelSend: 'nesting' });
+  const letterboxSend = element({ corelSend: 'letterbox' });
   const ids = Object.fromEntries(
     ['importButton', 'lbImportButton', 'emptyState', 'fileName', 'fileSubtitle', 'placedDetail', 'settingsMessage', 'lbFileName', 'lbFileDetail', 'lbMessage', 'lbResultsList', 'piecesList', 'resetButton', 'lbResetButton', 'letterboxView', 'nestingView']
       .map(id => [id, element()])
   );
   const messages = [];
   const posts = [];
-  const controls = [receive, send];
+  const controls = [receive, send, letterboxSend];
   const document = {
     body: { classList: { add() {} } },
     querySelectorAll(selector) {
       if (selector === '.corel-control') return controls;
       if (selector === '[data-corel-receive]') return [receive];
-      if (selector === '[data-corel-send]') return [send];
+      if (selector === '[data-corel-send]') return [send, letterboxSend];
       return [];
     },
   };
@@ -38,6 +39,7 @@ async function main() {
     window: {
       chrome: { webview: { postMessage: value => messages.push(value) } },
       TCutNestingBridge: { exportSvg: () => '<svg></svg>' },
+      TCutLetterboxBridge: { exportSvg: () => '<svg id="tiras"></svg>' },
     },
     fetch: async (url, options) => {
       posts.push({ url, options });
@@ -54,7 +56,12 @@ async function main() {
   await send.listeners.click();
   assert.equal(posts[0].url, '/api/corel/output');
   assert.equal(posts[0].options.body, '<svg></svg>');
-  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_IMPORT']);
+  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING']);
+  await letterboxSend.listeners.click();
+  assert.equal(posts[1].options.body, '<svg id="tiras"></svg>');
+  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX']);
+  ids.resetButton.listeners.click();
+  assert.deepEqual(messages, ['TCUT_SEND', 'TCUT_APPLY_NESTING', 'TCUT_IMPORT_LETTERBOX', 'TCUT_CLEAR_SOURCE']);
   console.log('Painel Corel: seleção e aplicação sem escolha manual de arquivo');
 }
 
