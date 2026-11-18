@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
+using Cdr = Corel.Interop.VGCore;
 
 namespace TCutDocker
 {
@@ -20,14 +21,14 @@ namespace TCutDocker
         private readonly TextBlock status;
         private readonly WebView2 web;
         private readonly DispatcherTimer readyTimer;
-        private readonly object corelApplication;
+        private readonly Cdr.Application corelApplication;
         private bool messageHookInstalled;
         private int readyAttempts;
 
         // CorelDRAW's wpfhost passes its in-process Application to the control.
         public TCutPanel(object application)
         {
-            corelApplication = application;
+            corelApplication = application as Cdr.Application;
             var root = new Grid { Background = new SolidColorBrush(Color.FromRgb(244, 247, 243)) };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -165,7 +166,7 @@ namespace TCutDocker
             catch { }
         }
 
-        private dynamic CorelApp()
+        private Cdr.Application CorelApp()
         {
             if (corelApplication == null)
                 throw new InvalidOperationException("O CorelDRAW não forneceu a aplicação ao painel.");
@@ -179,14 +180,14 @@ namespace TCutDocker
                 return;
             }
             try {
-                dynamic doc = CorelApp().ActiveDocument;
+                Cdr.Document doc = CorelApp().ActiveDocument;
                 if (doc == null || doc.SelectionRange.Count < 1) {
                     SetStatus("Selecione as letras ou peças no CorelDRAW.");
                     return;
                 }
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-input.svg");
                 if (File.Exists(file)) File.Delete(file);
-                doc.Export(file, 1345, 2); // cdrSVG, cdrSelection
+                doc.Export(file, Cdr.cdrFilter.cdrSVG, Cdr.cdrExportRange.cdrSelection);
                 SetStatus("Seleção enviada. Preparando o plano no T-Cut...");
                 web.CoreWebView2.ExecuteScriptAsync(
                     "if(window.TCutCorelBridge){window.TCutCorelBridge.receiveCurrent()}" +
@@ -228,9 +229,9 @@ namespace TCutDocker
             try {
                 var file = Path.Combine(Path.GetTempPath(), "tcut-corel-output.svg");
                 if (!File.Exists(file)) throw new FileNotFoundException("SVG não encontrado");
-                dynamic doc = CorelApp().ActiveDocument;
+                Cdr.Document doc = CorelApp().ActiveDocument;
                 if (doc == null) throw new InvalidOperationException("Abra um documento no CorelDRAW");
-                doc.ActiveLayer.Import(file, 1345); // cdrSVG
+                doc.ActiveLayer.Import(file, Cdr.cdrFilter.cdrSVG);
                 SetStatus("Resultado importado. Confira a escala, as cores e os contornos.");
             } catch (Exception ex) { SetStatus("Falha ao importar: " + ex.Message); }
         }
